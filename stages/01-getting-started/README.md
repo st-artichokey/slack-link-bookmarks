@@ -71,23 +71,27 @@ The app connects but is inert — it doesn't respond to anything yet.
 
 ### 8. Add an event listener
 
-Open `app.js` and add a handler for the `app_mention` event (where the comment says "Your event listeners will go here"):
+Your app is connected but inert. Now give it something to do — register a handler for the `app_mention` event. Open `app.js` and add this where the comment says "Your event listeners will go here":
 
 ```javascript
 app.event('app_mention', async ({ event, say }) => {
-  await say(`Hey <@${event.user}>! Link Bookmarks is ready.`);
+  await say(`Hello <@${event.user}>`);
 });
 ```
 
 ### 9. Update the manifest
 
-Your handler needs two manifest changes — a scope and an event subscription. Update `manifest.json`:
+The handler needs two manifest changes. Both the scope and the event subscription must be present — the scope grants permission; the subscription tells Slack to deliver the event.
 
-1. Add `app_mentions:read` to the bot scopes array
-2. Add an `event_subscriptions` section under `settings`:
+Update `manifest.json`:
 
 ```json
 {
+  "oauth_config": {
+    "scopes": {
+      "bot": ["app_mentions:read", "chat:write"]
+    }
+  },
   "settings": {
     "event_subscriptions": {
       "bot_events": ["app_mention"]
@@ -99,6 +103,8 @@ Your handler needs two manifest changes — a scope and an event subscription. U
 
 After saving, reinstall the app (OAuth & Permissions → Reinstall to Workspace) to pick up the new scope. Then restart `slack run`.
 
+> If mentioning the app does nothing: (1) Confirm the app is in the channel — invite it with `/invite @Link Bookmarks`. (2) Check that your manifest includes both the `app_mentions:read` scope AND the `app_mention` event subscription — missing either one causes silent failure. (3) Make sure `slack run` is still active in your terminal.
+
 ### 10. Test it
 
 In your workspace, invite the app to a channel (`/invite @Link Bookmarks`), then mention it:
@@ -106,6 +112,8 @@ In your workspace, invite the app to a channel (`/invite @Link Bookmarks`), then
 ```
 @Link Bookmarks hello
 ```
+
+The app responds with "Hello @yourname".
 
 ## Checkpoints
 
@@ -118,9 +126,11 @@ In your workspace, invite the app to a channel (`/invite @Link Bookmarks`), then
 
 ## Stretch goals
 
-1. **Add a second event**: Subscribe to `message` events (requires `channels:history` scope) and have the app respond when someone says "bookmark" in a channel. Hint: use `app.message('bookmark', ...)`.
+1. **Add a slash command**: Add a `/hello` command that responds with a greeting. You'll need to declare the command in `manifest.json` under `features.slash_commands`, add the `commands` scope to your bot scopes, and register a handler with `app.command('/hello', ...)`. Remember: `ack()` must be called within 3 seconds. See the [companion guide](../../posts/01/companion.md#add-a-slash-command) for the full walkthrough.
 
-2. **Customize the response**: Use Block Kit to format the reply with a section block and a button (preview of post 04). The [Block Kit Builder](https://app.slack.com/block-kit-builder) can help you prototype.
+2. **Respond with Block Kit**: Replace the plain text response in your `app_mention` handler with a structured Block Kit message using `say({ blocks: [...] })`. The [Block Kit Builder](https://app.slack.com/block-kit-builder) lets you prototype layouts visually.
+
+3. **Listen for a message pattern**: Subscribe to `message` events (requires `channels:history` scope and `message.channels` event subscription) and respond when someone says "bookmark" in a channel. Hint: use `app.message('bookmark', ...)`.
 
 ## Resources
 
