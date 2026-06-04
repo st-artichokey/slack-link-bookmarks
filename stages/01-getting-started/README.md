@@ -22,7 +22,14 @@ slack login
 
 Approve the OAuth flow in your browser.
 
-### 2. Initialize the project for the Slack CLI
+### 2. Register your app with Slack
+
+1. Go to [api.slack.com/apps](https://api.slack.com/apps) → **Create New App** → **From a manifest**
+2. Select your dev workspace
+3. Paste the contents of `manifest.json` from this directory
+4. Click through to create
+
+### 3. Initialize the project for the Slack CLI
 
 ```bash
 slack init
@@ -30,20 +37,13 @@ slack init
 
 This creates a `.slack/` directory containing `hooks.json` and `config.json`. The hooks file tells the Slack CLI how to communicate with your app (reading the manifest, starting the dev server, etc.). It also adds `@slack/cli-hooks` as a dev dependency — the package that implements those hooks for Bolt JS.
 
-If prompted to link an existing app, skip it for now — we'll register the app in step 4.
+When prompted to link an existing app, select the app you just registered in step 2.
 
-### 3. Install dependencies
+### 4. Install dependencies
 
 ```bash
 npm install
 ```
-
-### 4. Register your app with Slack
-
-1. Go to [api.slack.com/apps](https://api.slack.com/apps) → **Create New App** → **From a manifest**
-2. Select your dev workspace
-3. Paste the contents of `manifest.json` from this directory
-4. Click through to create
 
 ### 5. Generate tokens
 
@@ -78,9 +78,9 @@ In your workspace, invite the app to a channel (`/invite @Link Bookmarks`), then
 ## Checkpoints
 
 - [ ] `slack login` shows your workspace in `slack auth list`
-- [ ] `slack init` creates a `.slack/` directory with `hooks.json` and `config.json`
-- [ ] `npm install` completes without errors (includes `@slack/cli-hooks` in devDependencies)
 - [ ] App appears in your workspace's app directory after manifest upload
+- [ ] `slack init` creates a `.slack/` directory and links your app
+- [ ] `npm install` completes without errors (includes `@slack/cli-hooks` in devDependencies)
 - [ ] `slack run` prints "Link Bookmarks is running!"
 - [ ] Mentioning the app in a channel produces a response
 
