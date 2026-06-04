@@ -126,7 +126,7 @@ The app responds with "Hello @yourname".
 
 ## Stretch goals
 
-1. **Add a slash command**: Add a `/hello` command that responds with a greeting. You'll need to declare the command in `manifest.json` under `features.slash_commands`, add the `commands` scope to your bot scopes, and register a handler with `app.command('/hello', ...)`. Remember: `ack()` must be called within 3 seconds. See the [companion guide](../../posts/01/companion.md#add-a-slash-command) for the full walkthrough.
+1. **Add a slash command**: Add a `/hello` command that responds with a greeting. You'll need to declare the command in `manifest.json` under `features.slash_commands`, add the `commands` scope to your bot scopes, and register a handler with `app.command('/hello', ...)`. See the [companion guide](../../posts/01/companion.md#add-a-slash-command) for the full walkthrough.
 
 2. **Respond with Block Kit**: Replace the plain text response in your `app_mention` handler with a structured Block Kit message using `say({ blocks: [...] })`. The [Block Kit Builder](https://app.slack.com/block-kit-builder) lets you prototype layouts visually.
 
