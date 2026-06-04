@@ -1,0 +1,60 @@
+{
+  "display_information": {
+    "name": "Link Bookmarks",
+    "description": "Save and organize links from Slack messages",
+    "long_description": "Link Bookmarks lets you save links from any Slack message into a personal collection. Browse, search, and share your saved links without leaving Slack. Organize with tags and find what you need instantly.",
+    "background_color": "#4A154B"
+  },
+  "features": {
+    "bot_user": {
+      "display_name": "Link Bookmarks",
+      "always_online": false
+    },
+    "shortcuts": [
+      {
+        "name": "Save Links",
+        "type": "message",
+        "callback_id": "save_links_shortcut",
+        "description": "Save links from this message"
+      },
+      {
+        "name": "Browse Bookmarks",
+        "type": "global",
+        "callback_id": "browse_bookmarks_shortcut",
+        "description": "Browse your saved bookmarks"
+      }
+    ],
+    "slash_commands": [
+      {
+        "command": "/bookmarks",
+        "description": "List or search your saved bookmarks",
+        "usage_hint": "[search term]",
+        "should_escape": false
+      }
+    ],
+    "app_home": {
+      "home_tab_enabled": true,
+      "messages_tab_enabled": false,
+      "messages_tab_read_only_enabled": false
+    }
+  },
+  "oauth_config": {
+    "scopes": {
+      "bot": [
+        "app_mentions:read",
+        "chat:write",
+        "commands",
+        "links:read"
+      ]
+    }
+  },
+  "settings": {
+    "event_subscriptions": {
+      "bot_events": ["app_mention", "app_home_opened"]
+    },
+    "interactivity": {
+      "is_enabled": true
+    },
+    "socket_mode_enabled": true
+  }
+}
