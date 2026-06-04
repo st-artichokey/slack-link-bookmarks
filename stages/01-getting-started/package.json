@@ -1,0 +1,12 @@
+{
+  "name": "slack-link-bookmarks",
+  "version": "0.1.0",
+  "description": "A Slack app for saving and organizing links from messages",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "@slack/bolt": "^4.1.0"
+  }
+}
