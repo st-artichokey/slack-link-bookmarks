@@ -67,7 +67,39 @@ Fill in your three values.
 slack run
 ```
 
-### 8. Test it
+The app connects but is inert — it doesn't respond to anything yet.
+
+### 8. Add an event listener
+
+Open `app.js` and add a handler for the `app_mention` event (where the comment says "Your event listeners will go here"):
+
+```javascript
+app.event('app_mention', async ({ event, say }) => {
+  await say(`Hey <@${event.user}>! Link Bookmarks is ready.`);
+});
+```
+
+### 9. Update the manifest
+
+Your handler needs two manifest changes — a scope and an event subscription. Update `manifest.json`:
+
+1. Add `app_mentions:read` to the bot scopes array
+2. Add an `event_subscriptions` section under `settings`:
+
+```json
+{
+  "settings": {
+    "event_subscriptions": {
+      "bot_events": ["app_mention"]
+    },
+    "socket_mode_enabled": true
+  }
+}
+```
+
+After saving, reinstall the app (OAuth & Permissions → Reinstall to Workspace) to pick up the new scope. Then restart `slack run`.
+
+### 10. Test it
 
 In your workspace, invite the app to a channel (`/invite @Link Bookmarks`), then mention it:
 
@@ -81,8 +113,8 @@ In your workspace, invite the app to a channel (`/invite @Link Bookmarks`), then
 - [ ] App appears in your workspace's app directory after manifest upload
 - [ ] `slack init` creates a `.slack/` directory and links your app
 - [ ] `npm install` completes without errors (includes `@slack/cli-hooks` in devDependencies)
-- [ ] `slack run` prints "Link Bookmarks is running!"
-- [ ] Mentioning the app in a channel produces a response
+- [ ] `slack run` prints "Link Bookmarks is running!" (app is inert at first — that's expected)
+- [ ] After adding the event listener, scope, and subscription: mentioning the app produces a response
 
 ## Stretch goals
 

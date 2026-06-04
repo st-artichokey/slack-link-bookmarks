@@ -7,9 +7,7 @@ const app = new App({
   appToken: process.env.SLACK_APP_TOKEN,
 });
 
-app.event('app_mention', async ({ event, say }) => {
-  await say(`Hey <@${event.user}>! Link Bookmarks is ready. In upcoming stages, you'll be able to save links from any message.`);
-});
+// Your event listeners will go here
 
 (async () => {
   await app.start();
