@@ -22,20 +22,30 @@ slack login
 
 Approve the OAuth flow in your browser.
 
-### 2. Install dependencies
+### 2. Initialize the project for the Slack CLI
+
+```bash
+slack init
+```
+
+This creates a `.slack/` directory containing `hooks.json` and `config.json`. The hooks file tells the Slack CLI how to communicate with your app (reading the manifest, starting the dev server, etc.). It also adds `@slack/cli-hooks` as a dev dependency — the package that implements those hooks for Bolt JS.
+
+If prompted to link an existing app, skip it for now — we'll register the app in step 4.
+
+### 3. Install dependencies
 
 ```bash
 npm install
 ```
 
-### 3. Register your app with Slack
+### 4. Register your app with Slack
 
 1. Go to [api.slack.com/apps](https://api.slack.com/apps) → **Create New App** → **From a manifest**
 2. Select your dev workspace
 3. Paste the contents of `manifest.json` from this directory
 4. Click through to create
 
-### 4. Generate tokens
+### 5. Generate tokens
 
 From your app's dashboard:
 
@@ -43,7 +53,7 @@ From your app's dashboard:
 2. **App-level token** — Basic Information → App-Level Tokens → Generate Token (add `connections:write` scope) → copy the `xapp-...` token
 3. **Signing secret** — Basic Information → App Credentials → copy
 
-### 5. Configure environment
+### 6. Configure environment
 
 ```bash
 cp .env.sample .env
@@ -51,13 +61,13 @@ cp .env.sample .env
 
 Fill in your three values.
 
-### 6. Run the app
+### 7. Run the app
 
 ```bash
 slack run
 ```
 
-### 7. Test it
+### 8. Test it
 
 In your workspace, invite the app to a channel (`/invite @Link Bookmarks`), then mention it:
 
@@ -68,7 +78,8 @@ In your workspace, invite the app to a channel (`/invite @Link Bookmarks`), then
 ## Checkpoints
 
 - [ ] `slack login` shows your workspace in `slack auth list`
-- [ ] `npm install` completes without errors
+- [ ] `slack init` creates a `.slack/` directory with `hooks.json` and `config.json`
+- [ ] `npm install` completes without errors (includes `@slack/cli-hooks` in devDependencies)
 - [ ] App appears in your workspace's app directory after manifest upload
 - [ ] `slack run` prints "Link Bookmarks is running!"
 - [ ] Mentioning the app in a channel produces a response
