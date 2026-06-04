@@ -8,7 +8,7 @@ const app = new App({
 });
 
 app.event('app_mention', async ({ event, say }) => {
-  await say(`Hey <@${event.user}>! Link Bookmarks is ready. In upcoming stages, you'll be able to save links from any message.`);
+  await say({ text: `Hello <@${event.user}>` });
 });
 
 (async () => {

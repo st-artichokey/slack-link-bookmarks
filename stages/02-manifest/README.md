@@ -4,12 +4,11 @@
 
 ## What you're building
 
-No new runtime behavior in this stage — the app still responds to mentions the same way. What changes is the manifest: you'll expand it to declare all the scopes, features, and event subscriptions that Link Bookmarks will use throughout the series. This is the planning phase for your app's contract with Slack.
+No new runtime behavior in this stage — the app still responds to mentions the same way. You'll expand the manifest to flesh out Link Bookmarks' identity and understand the four sections that make up every Slack app manifest.
 
 ## What changed from the previous stage
 
-- `manifest.json` — expanded from 2 scopes to the full set; added shortcuts, slash command, App Home, interactivity, and display information
-- `package.json` — version bump only
+Nothing yet — the manifest starts as you left it at the end of stage 01. You'll modify it as you go through the walkthrough.
 
 ## Prerequisites
 
@@ -17,9 +16,9 @@ No new runtime behavior in this stage — the app still responds to mentions the
 
 ## Walkthrough
 
-### 1. Review the expanded manifest
+### 1. Understand the four manifest sections
 
-Open `manifest.json` and compare it to stage 01's version. The four top-level sections are:
+Open `manifest.json`. It has four top-level sections:
 
 | Section | What it controls |
 |---------|-----------------|
@@ -28,42 +27,72 @@ Open `manifest.json` and compare it to stage 01's version. The four top-level se
 | `oauth_config` | Scopes — permissions your app requests |
 | `settings` | Event subscriptions, interactivity, socket mode — runtime config |
 
-### 2. Understand each scope
+Right now yours is minimal. As you work through this stage, you'll expand each section.
 
-| Scope | Why Link Bookmarks needs it |
-|-------|----------------------------|
-| `app_mentions:read` | Respond when users @-mention the app |
-| `chat:write` | Post messages (confirmations, shared bookmarks) |
-| `commands` | Register and respond to `/bookmarks` |
-| `links:read` | Extract and unfurl link metadata from messages |
+### 2. Update `display_information`
 
-Every scope maps to a feature. Marketplace reviewers verify this — unused scopes cause rejection.
+This is your app's identity — what users and marketplace reviewers see. Update your manifest's `display_information` section:
 
-### 3. Understand each feature declaration
+```json
+{
+  "display_information": {
+    "name": "Link Bookmarks",
+    "description": "Save and organize links from Slack messages",
+    "long_description": "Link Bookmarks lets you save links from any Slack message into a personal collection. Browse, search, and share your saved links without leaving Slack.",
+    "background_color": "#4A154B"
+  }
+}
+```
 
-| Feature | Purpose in Link Bookmarks |
-|---------|--------------------------|
-| Message shortcut ("Save Links") | Primary save action — right-click a message to bookmark its links |
-| Global shortcut ("Browse Bookmarks") | Quick access to browse/search from anywhere |
-| `/bookmarks` command | Inline search without leaving the channel |
-| App Home | Full bookmark dashboard with manage/delete/share |
+| Field | Purpose |
+|-------|---------|
+| `name` | App name shown in Slack |
+| `description` | Short description for the app directory |
+| `long_description` | Extended description for marketplace listings |
+| `background_color` | Hex color for branding |
 
-### 4. Update your app's manifest in the dashboard
+### 3. Add a new scope
 
-Copy the contents of this stage's `manifest.json` and update your app:
+The article walks through adding `reactions:write` as an example. For Link Bookmarks, add the `commands` scope — you'll need it for the `/bookmarks` slash command in stage 05.
+
+Update your `oauth_config`:
+
+```json
+{
+  "oauth_config": {
+    "scopes": {
+      "bot": ["app_mentions:read", "chat:write", "commands"]
+    }
+  }
+}
+```
+
+After updating, reinstall the app so Slack picks up the new permission: OAuth & Permissions → **Reinstall to Workspace**.
+
+### 4. Enable interactivity
+
+For buttons, shortcuts, and modals to work (stages 03–06), interactivity must be enabled. Add it to your `settings`:
+
+```json
+{
+  "settings": {
+    "event_subscriptions": {
+      "bot_events": ["app_mention"]
+    },
+    "interactivity": {
+      "is_enabled": true
+    },
+    "socket_mode_enabled": true
+  }
+}
+```
+
+### 5. Upload the updated manifest
 
 1. Go to [api.slack.com/apps](https://api.slack.com/apps) → select your app
 2. Navigate to **App Manifest** in the sidebar
-3. Replace the manifest contents with this stage's version
+3. Replace the manifest contents with your updated version
 4. Save changes
-
-### 5. Reinstall the app
-
-Adding scopes requires reinstallation:
-
-1. Go to **OAuth & Permissions**
-2. Click **Reinstall to Workspace**
-3. Approve the updated permissions
 
 ### 6. Verify
 
@@ -71,14 +100,16 @@ Adding scopes requires reinstallation:
 slack run
 ```
 
-The app still responds to mentions. The new features (shortcuts, command, App Home) are registered but have no handlers yet — that's stages 03–06.
+The app still responds to mentions. The manifest now declares your app's identity and has the foundation for features you'll add in upcoming stages.
+
+**Check the dashboard:** Open your app's Basic Information page — you should see the description and background color reflected there.
 
 ## Checkpoints
 
-- [ ] `manifest.json` has all four scopes (`app_mentions:read`, `chat:write`, `commands`, `links:read`)
-- [ ] Dashboard shows the slash command `/bookmarks` under Features → Slash Commands
-- [ ] Dashboard shows both shortcuts under Features → Interactivity & Shortcuts
-- [ ] App Home tab is visible when you click the app in the sidebar (empty for now)
+- [ ] `display_information` includes name, description, long_description, and background_color
+- [ ] `oauth_config` has three scopes: `app_mentions:read`, `chat:write`, `commands`
+- [ ] `settings` includes `interactivity.is_enabled: true`
+- [ ] Dashboard Basic Information page reflects your display info
 - [ ] `slack run` still works — mentioning the app produces a response
 
 ## Stretch goals
