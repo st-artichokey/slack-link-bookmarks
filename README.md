@@ -1,51 +1,31 @@
-# Slack Link Bookmarks — Workshop
+# Stage 02 — Your App's Manifest
 
-A self-paced code-along companion to the "Building a Marketplace-Ready Slack App from Scratch" series.
+> Corresponds to: Post 02 — Your App's Manifest
 
-## The app
+## What this branch represents
 
-Link Bookmarks lets users save links from Slack messages into a personal collection, browse and search them, and share them back to channels — all without leaving Slack.
+The app at the end of stage 02. You've expanded the manifest to declare Link Bookmarks' identity, added the `commands` scope for future use, and enabled interactivity.
 
-## How this repo works
+## What changed from stage-01
 
-The `stages/` directory contains 13 folders, one per series post. Each stage is a **fully runnable, standalone app** — you can jump to any stage, install dependencies, and run it.
+- `display_information` now includes `description`, `long_description`, and `background_color`
+- `commands` scope added to `oauth_config`
+- `interactivity.is_enabled` set to `true` in `settings`
 
-To see what changed between stages, diff adjacent folders:
+## Running
 
 ```bash
-diff -r stages/01-getting-started stages/02-manifest
+npm install
+cp .env.sample .env
+# Fill in your tokens (see post 01 for details)
+slack run
 ```
+
+The app responds to @-mentions with a hello message. The manifest is now ready for interactive features in upcoming stages.
 
 ## Prerequisites
 
 - Node.js (LTS)
 - [Slack CLI](https://docs.slack.dev/quickstart) (JavaScript version)
 - A [developer sandbox workspace](https://api.slack.com/developer-program)
-
-## Quick start (any stage)
-
-```bash
-cd stages/01-getting-started
-npm install
-cp .env.sample .env
-# Fill in your tokens (see the stage README for details)
-slack run
-```
-
-## Stages
-
-| # | Title | What's added |
-|---|-------|-------------|
-| 01 | Getting Started | Hello world — app responds to mentions |
-| 02 | Manifest | Scopes and configuration explained |
-| 03 | Events & Interactivity | Message shortcut saves a link |
-| 04 | Block Kit | Bookmarks render as rich cards |
-| 05 | Entry Points | Slash command + global shortcut + message shortcut |
-| 06 | App Home | Per-user bookmark dashboard |
-| 07 | Datastores | SQLite persistence |
-| 08 | Error Handling | Structured logging and graceful failures |
-| 09 | Testing | Unit and integration tests |
-| 10 | Security | Multi-tenant audit and hardening |
-| 11 | Distribution | OAuth multi-workspace install |
-| 12 | Marketplace Prep | Listing, privacy policy, landing page |
-| 13 | Submission | Review checklist and maintenance |
+- App registered and tokens configured (see stage-01 branch)
