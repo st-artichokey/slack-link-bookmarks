@@ -1,19 +1,18 @@
-# Slack Link Bookmarks — Workshop
+# Slack Link Bookmarks
 
-A self-paced code-along companion to the "Building a Marketplace-Ready Slack App from Scratch" series.
+A code-along companion to the "Building a Marketplace-Ready Slack App" series. Each branch represents the app at the end of that stage.
 
-## The app
+## How to use this repo
 
-Link Bookmarks lets users save links from Slack messages into a personal collection, browse and search them, and share them back to channels — all without leaving Slack.
+1. Check out the branch for the stage you're on (e.g. `git checkout stage-01`)
+2. Run `npm install`
+3. Copy `.env.sample` to `.env` and fill in your tokens
+4. Run `slack run`
 
-## How this repo works
-
-The `stages/` directory contains 13 folders, one per series post. Each stage is a **fully runnable, standalone app** — you can jump to any stage, install dependencies, and run it.
-
-To see what changed between stages, diff adjacent folders:
+To see what changed between stages:
 
 ```bash
-diff -r stages/01-getting-started stages/02-manifest
+git diff stage-01..stage-02
 ```
 
 ## Prerequisites
@@ -22,30 +21,14 @@ diff -r stages/01-getting-started stages/02-manifest
 - [Slack CLI](https://docs.slack.dev/quickstart) (JavaScript version)
 - A [developer sandbox workspace](https://api.slack.com/developer-program)
 
-## Quick start (any stage)
+---
 
-```bash
-cd stages/01-getting-started
-npm install
-cp .env.sample .env
-# Fill in your tokens (see the stage README for details)
-slack run
-```
+## Stage 01 — Getting Started
 
-## Stages
+The app at the end of stage 01. A minimal Slack app running in socket mode that responds to @-mentions with a hello message.
 
-| # | Title | What's added |
-|---|-------|-------------|
-| 01 | Getting Started | Hello world — app responds to mentions |
-| 02 | Manifest | Scopes and configuration explained |
-| 03 | Events & Interactivity | Message shortcut saves a link |
-| 04 | Block Kit | Bookmarks render as rich cards |
-| 05 | Entry Points | Slash command + global shortcut + message shortcut |
-| 06 | App Home | Per-user bookmark dashboard |
-| 07 | Datastores | SQLite persistence |
-| 08 | Error Handling | Structured logging and graceful failures |
-| 09 | Testing | Unit and integration tests |
-| 10 | Security | Multi-tenant audit and hardening |
-| 11 | Distribution | OAuth multi-workspace install |
-| 12 | Marketplace Prep | Listing, privacy policy, landing page |
-| 13 | Submission | Review checklist and maintenance |
+### What's here
+
+- Bolt for JavaScript app with socket mode
+- `app_mention` event handler
+- Minimal manifest with `app_mentions:read` and `chat:write` scopes

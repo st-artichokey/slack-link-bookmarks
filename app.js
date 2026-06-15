@@ -7,7 +7,9 @@ const app = new App({
   appToken: process.env.SLACK_APP_TOKEN,
 });
 
-// Your event listeners will go here
+app.event('app_mention', async ({ event, say }) => {
+  await say(`Hello <@${event.user}>`);
+});
 
 (async () => {
   await app.start();
