@@ -1,7 +1,6 @@
 {
   "display_information": {
-    "name": "Link Bookmarks",
-    "description": "Save and organize links from Slack messages"
+    "name": "Link Bookmarks"
   },
   "features": {
     "bot_user": {
@@ -11,15 +10,12 @@
   },
   "oauth_config": {
     "scopes": {
-      "bot": ["app_mentions:read", "chat:write", "reactions:write"]
+      "bot": ["app_mentions:read", "chat:write"]
     }
   },
   "settings": {
     "event_subscriptions": {
       "bot_events": ["app_mention"]
-    },
-    "interactivity": {
-      "is_enabled": true
     },
     "socket_mode_enabled": true
   }

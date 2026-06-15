@@ -7,12 +7,8 @@ const app = new App({
   appToken: process.env.SLACK_APP_TOKEN,
 });
 
-app.event('app_mention', async ({ event, client }) => {
-  await client.reactions.add({
-    channel: event.channel,
-    timestamp: event.ts,
-    name: 'wave'
-  });
+app.event('app_mention', async ({ event, say }) => {
+  await say({ text: `Hello <@${event.user}>` });
 });
 
 (async () => {
