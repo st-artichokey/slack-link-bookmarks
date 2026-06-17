@@ -23,12 +23,16 @@ git diff stage-01..stage-02
 
 ---
 
-## Stage 02 — Your App's Manifest
+## Stage 03 — Events & Interactivity
 
-The app at the end of stage 02. You've expanded the manifest to declare Link Bookmarks' identity, added the `commands` scope for future use, and enabled interactivity.
+The app at the end of stage 03. You've added event listeners, interactive commands, and a modal form submission flow.
 
-### What changed from stage-01
+### What changed from stage-02
 
-- `display_information` now includes `description`, `long_description`, and `background_color`
-- `commands` scope added to `oauth_config`
-- `interactivity.is_enabled` set to `true` in `settings`
+- `app.message('hello bot')` listener responds to a keyword in channel messages
+- `/save-link` command saves a URL and responds with a "View Saved Links" button
+- `app.action('view_saved_links')` opens a modal displaying the user's bookmarks
+- `/show-links` command lists saved links with optional keyword filtering
+- `/delete-links` command opens a modal with checkboxes to select links for removal
+- `app.view('delete_links_modal')` handles the modal submission and deletes selected bookmarks
+- Manifest updated with slash commands, `channels:history` scope, and `message.channels` event
