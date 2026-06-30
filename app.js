@@ -9,12 +9,22 @@ const app = new App({
 
 const bookmarks = [];
 
-app.event('app_mention', async ({ event, say }) => {
-  await say({ text: `Hello <@${event.user}>` });
+// app.event('app_mention', async ({ event, say }) => {
+//   await say({ text: `Hello <@${event.user}>` });
+// });
+
+app.event('app_mention', async ({ event, client }) => {
+  await client.reactions.add({
+    channel: event.channel,
+    timestamp: event.ts,
+    name: 'wave'
+  });
 });
+
 
 app.message('hello bot', async ({ message, say }) => {
   await say(`Hello, <@${message.user}>.`);
+  
 });
 
 app.command('/save-link', async ({ command, ack, respond }) => {
