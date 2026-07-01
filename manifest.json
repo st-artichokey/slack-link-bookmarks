@@ -1,0 +1,44 @@
+{
+  "display_information": {
+    "name": "Link Bookmarks",
+    "description": "Save and organize links from Slack messages",
+    "long_description": "Link Bookmarks lets you save links from any Slack message into a personal collection. Browse, search, and share your saved links without leaving Slack. Add it to any channel and type \"Hi Bot\" or use the slash command `/save-bookmark` to save your first bookmark",
+    "background_color": "#4A154B"
+  },
+  "features": {
+    "bot_user": {
+      "display_name": "Link Bookmarks",
+      "always_online": false
+    },
+    "slash_commands": [
+      {
+        "command": "/save-link",
+        "description": "Save a link to your bookmarks",
+        "usage_hint": "<url>"
+      },
+      {
+        "command": "/show-links",
+        "description": "Search and display your saved links",
+        "usage_hint": "[keyword]"
+      },
+      {
+        "command": "/delete-links",
+        "description": "Select and delete saved links"
+      }
+    ]
+  },
+  "oauth_config": {
+    "scopes": {
+      "bot": ["app_mentions:read", "chat:write", "commands", "channels:history", "reactions:write"]
+    }
+  },
+  "settings": {
+    "event_subscriptions": {
+      "bot_events": ["app_mention", "message.channels"]
+    },
+    "interactivity": {
+      "is_enabled": true
+    },
+    "socket_mode_enabled": true
+  }
+}
