@@ -26,53 +26,48 @@ app.message('hello bot', async ({ message, say }) => {
   await say(`Hello, <@${message.user}>.`);
 });
 
-app.message('boop', async({ message, say }) => {
-  await say({
-      "type": "header",
-      "text": { "type": "plain_text", "text": "Deployment Summary" }
+app.message('share links', async ({ message, client }) => {
+  const userBookmarks = bookmarks.filter(b => b.userId === message.user);
+
+  if (userBookmarks.length === 0) {
+    await client.chat.postEphemeral({
+      channel: message.channel,
+      user: message.user,
+      text: 'You have no saved links to share. Use /save-link <url> to add one.'
+    });
+    return;
+  }
+
+  const count = userBookmarks.length;
+  const linkList = userBookmarks.map(b => `• <${b.url}|${b.title}>`).join('\n');
+
+  const blocks = [
+    {
+      type: 'header',
+      text: { type: 'plain_text', text: ':link: Shared Links' }
     },
     {
-      "type": "section",
-      "fields": [
-        { "type": "mrkdwn", "text": "*Environment:*\nProduction" },
-        { "type": "mrkdwn", "text": "*Status:*\nComplete" }
-      ]
-    },
-    {
-      "type": "section",
-      "text": { "type": "mrkdwn", "text": "Version `v2.4.1` deployed to all regions." },                                                 
-      "accessory": {
-        "type": "button",
-        "text": { "type": "plain_text", "text": "View Logs" },
-        "action_id": "view_deploy_logs",
-        "url": "https://logs.example.com/deploys/latest"
-      }
-    },
-    { "type": "divider" },
-    {
-      "type": "actions",
-      "elements": [
+      type: 'context',
+      elements: [
         {
-          "type": "button",
-          "text": { "type": "plain_text", "text": "Rollback" },
-          "action_id": "rollback_deploy",
-          "style": "danger",
-          "confirm": {
-            "title": { "type": "plain_text", "text": "Confirm Rollback" },
-            "text": { "type": "mrkdwn", "text": "This will revert production to the previous version." },
-            "confirm": { "type": "plain_text", "text": "Rollback" },
-            "deny": { "type": "plain_text", "text": "Cancel" }
-          }
+          type: 'mrkdwn',
+          text: `Shared by <@${message.user}> · ${count} link${count === 1 ? '' : 's'}`
         }
       ]
     },
+    { type: 'divider' },
     {
-      "type": "context",
-      "elements": [
-        { "type": "mrkdwn", "text": "Deployed by <@U123ABC> at 14:32 UTC" }
-      ]
-    })
-})
+      type: 'section',
+      text: { type: 'mrkdwn', text: linkList }
+    }
+  ];
+
+  await client.chat.postMessage({
+    channel: message.channel,
+    blocks,
+    text: `<@${message.user}> shared ${count} link${count === 1 ? '' : 's'}`
+  });
+});
 
 app.command('/save-link', async ({ command, ack, respond }) => {
   await ack();
