@@ -25,9 +25,14 @@ git diff stage-03..stage-04
 
 ## Stage 04 — Building with Block Kit
 
-The app at the end of stage 03. You've added event listeners, interactive commands, and a modal form submission flow.
+The app at the end of stage 04. Building on the event listeners, interactive commands, and modal flows from stage 03, this stage introduces a Block Kit message that shares your saved links to the channel.
 
-### What changed from stage-02
+### What changed from stage-03
+
+- `app.message('share links')` posts a structured Block Kit message (header, context, divider, section) listing the user's saved links to the channel, with an ephemeral prompt when there's nothing to share
+- Manifest listing copy corrected to match the app: the "hello bot" trigger and the `/save-link` command
+
+### Features carried over from stage-03
 
 - `app.message('hello bot')` listener responds to a keyword in channel messages
 - `/save-link` command saves a URL and responds with a "View Saved Links" button
@@ -35,4 +40,3 @@ The app at the end of stage 03. You've added event listeners, interactive comman
 - `/show-links` command lists saved links with optional keyword filtering
 - `/delete-links` command opens a modal with checkboxes to select links for removal
 - `app.view('delete_links_modal')` handles the modal submission and deletes selected bookmarks
-- Manifest updated with slash commands, `channels:history` scope, and `message.channels` event
