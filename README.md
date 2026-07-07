@@ -23,9 +23,9 @@ git diff stage-04..stage-05
 
 ---
 
-## Stage 05 — Slash Commands vs. Shortcuts vs. Workflows
+## Stage 05 — Slash Commands vs. Shortcuts
 
-The starting point for stage 05. The app carries over everything through stage 04 (event listeners, interactive commands, modal flows, and the Block Kit share-links message). This stage explores the tradeoffs between entry points — slash commands, shortcuts, and workflows — and how that choice affects Marketplace review.
+The starting point for stage 05. The app carries over everything through stage 04 (event listeners, interactive commands, modal flows, and the Block Kit share-links message). This stage explores the tradeoffs between entry points — slash commands and shortcuts — and how that choice affects Marketplace review.
 
 ### Features carried over from stage-04
 
