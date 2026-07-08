@@ -27,7 +27,7 @@ git diff stage-01..stage-02
 
 The app at the end of stage 01. A minimal Slack app running in socket mode that responds to @-mentions with a hello message.
 
-### What's here
+### New in this stage
 
 - Bolt for JavaScript app with socket mode
 - `app_mention` event handler
