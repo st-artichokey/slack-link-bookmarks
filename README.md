@@ -27,13 +27,13 @@ git diff stage-05..stage-06
 
 The starting point for stage 06. The app carries over everything through stage 05 (event listeners, interactive commands, modal flows, and the Block Kit share-links message) and adds durable storage so bookmarks survive restarts. This stage builds toward an App Home tab as a persistent entry point.
 
-### New in stage-06
+### New in this stage
 
 - Bookmarks now persist to a local `bookmarks.db` JSON file instead of an in-memory array
 - `loadBookmarks()` hydrates saved links from disk on startup, falling back to an empty list if the file is missing or unreadable
 - `saveBookmarks()` writes the full collection back to disk after every save and delete
 
-### Features carried over from stage-05
+### From previous stages
 
 - `app.message('hello bot')` listener responds to a keyword in channel messages
 - `app.message('share links')` posts a Block Kit message listing the user's saved links to the channel
