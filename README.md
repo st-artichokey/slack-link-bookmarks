@@ -27,7 +27,7 @@ git diff stage-01..stage-02
 
 The app at the end of stage 03. You've added event listeners, interactive commands, and a modal form submission flow.
 
-### What changed from stage-02
+### New in this stage
 
 - `app.message('hello bot')` listener responds to a keyword in channel messages
 - `/save-link` command saves a URL and responds with a "View Saved Links" button
@@ -36,3 +36,8 @@ The app at the end of stage 03. You've added event listeners, interactive comman
 - `/delete-links` command opens a modal with checkboxes to select links for removal
 - `app.view('delete_links_modal')` handles the modal submission and deletes selected bookmarks
 - Manifest updated with slash commands, `channels:history` scope, and `message.channels` event
+
+### From previous stages
+
+- `app.event('app_mention')` handler responds to @-mentions
+- Manifest declares the app's identity and enables interactivity, with the `commands` scope in place
