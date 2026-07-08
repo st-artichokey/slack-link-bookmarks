@@ -27,6 +27,14 @@ git diff stage-04..stage-05
 
 The starting point for stage 05. The app carries over everything through stage 04 (event listeners, interactive commands, modal flows, and the Block Kit share-links message). This stage explores the tradeoffs between entry points — slash commands and shortcuts — and how that choice affects Marketplace review.
 
+### New in this stage
+
+- `app.shortcut('show_saved_links')` global shortcut opens the saved-links modal, sharing a `buildSavedLinksModal` helper with the `view_saved_links` action
+- `app.shortcut('add_links')` global shortcut opens a modal with a multiline input to save several links at once
+- `app.view('add_links_modal')` parses one link per line and confirms the count in the updated modal
+- `delete_links_modal` submission now confirms in the updated modal instead of sending a DM
+- Manifest adds a "Save Message" message shortcut plus "Show Saved Links" and "Add Links" global shortcuts
+
 ### From previous stages
 
 - `app.message('hello bot')` listener responds to a keyword in channel messages
