@@ -25,6 +25,26 @@
         "command": "/delete-links",
         "description": "Select and delete saved links"
       }
+    ],
+    "shortcuts": [
+      {
+        "name": "Save Message",
+        "type": "message",
+        "callback_id": "save_message_shortcut",
+        "description": "Save this message for later"
+      },
+       {
+        "name": "Show Saved Links",
+        "type": "global",
+        "callback_id": "show_saved_links",
+        "description": "Show what links you've saved"
+      },
+      {
+        "name": "Add Links",
+        "type": "global",
+        "callback_id": "add_links",
+        "description": "Add several links at once"
+      }
     ]
   },
   "oauth_config": {
