@@ -27,8 +27,13 @@ git diff stage-01..stage-02
 
 The app at the end of stage 02. You've expanded the manifest to declare Link Bookmarks' identity, added the `commands` scope for future use, and enabled interactivity.
 
-### What changed from stage-01
+### New in this stage
 
 - `display_information` now includes `description`, `long_description`, and `background_color`
 - `commands` scope added to `oauth_config`
 - `interactivity.is_enabled` set to `true` in `settings`
+
+### From previous stages
+
+- `app.event('app_mention')` handler responds to @-mentions
+- Minimal manifest with `app_mentions:read` and `chat:write` scopes, running in socket mode
