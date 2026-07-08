@@ -27,7 +27,7 @@ git diff stage-04..stage-05
 
 The starting point for stage 05. The app carries over everything through stage 04 (event listeners, interactive commands, modal flows, and the Block Kit share-links message). This stage explores the tradeoffs between entry points — slash commands and shortcuts — and how that choice affects Marketplace review.
 
-### Features carried over from stage-04
+### From previous stages
 
 - `app.message('hello bot')` listener responds to a keyword in channel messages
 - `app.message('share links')` posts a Block Kit message listing the user's saved links to the channel
