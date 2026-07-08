@@ -11,19 +11,32 @@ const app = new App({
 
 const DB_PATH = path.join(__dirname, 'bookmarks.db');
 
-function loadBookmarks() {
+const DEFAULT_PREFERENCES = { sortOrder: 'newest' };
+
+function loadDb() {
   try {
-    return JSON.parse(fs.readFileSync(DB_PATH, 'utf8')).bookmarks;
+    return JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
   } catch {
-    return [];
+    return {};
   }
 }
 
-function saveBookmarks() {
-  fs.writeFileSync(DB_PATH, JSON.stringify({ bookmarks }, null, 2));
+function saveDb() {
+  fs.writeFileSync(DB_PATH, JSON.stringify({ bookmarks, preferences }, null, 2));
 }
 
-const bookmarks = loadBookmarks();
+const db = loadDb();
+const bookmarks = db.bookmarks || [];
+const preferences = db.preferences || {};
+
+function getPreferences(userId) {
+  return { ...DEFAULT_PREFERENCES, ...preferences[userId] };
+}
+
+function savePreferences(userId, prefs) {
+  preferences[userId] = { ...getPreferences(userId), ...prefs };
+  saveDb();
+}
 
 // app.event('app_mention', async ({ event, say }) => {
 //   await say({ text: `Hello <@${event.user}>` });
@@ -85,8 +98,17 @@ app.message('share links', async ({ message, client }) => {
   });
 });
 
+function sortBookmarks(userBookmarks, sortOrder) {
+  if (sortOrder === 'alphabetical') {
+    return [...userBookmarks].sort((a, b) => a.title.localeCompare(b.title));
+  }
+  return [...userBookmarks].reverse();
+}
+
 function buildHomeView(userId) {
+  const { sortOrder } = getPreferences(userId);
   const userBookmarks = bookmarks.filter(b => b.userId === userId);
+  const sortLabel = sortOrder === 'alphabetical' ? 'A–Z' : 'Newest first';
   const blocks = [
     {
       type: 'header',
@@ -97,33 +119,34 @@ function buildHomeView(userId) {
       elements: [
         {
           type: 'mrkdwn',
-          text: `${userBookmarks.length} saved link${userBookmarks.length === 1 ? '' : 's'} · Use \`/save-link <url>\` to add more`
+          text: `${userBookmarks.length} saved link${userBookmarks.length === 1 ? '' : 's'} · Sorted by ${sortLabel}`
         }
       ]
     },
     { type: 'divider' }
   ];
 
+  const actionElements = [];
   if (userBookmarks.length === 0) {
     blocks.push({
       type: 'section',
       text: { type: 'mrkdwn', text: 'You have no saved links yet. Save your first with `/save-link <url>`.' }
     });
   } else {
-    userBookmarks.forEach(b => {
+    sortBookmarks(userBookmarks, sortOrder).forEach(b => {
       blocks.push({
         type: 'section',
         text: { type: 'mrkdwn', text: `• <${b.url}|${b.title}>` }
       });
     });
-    blocks.push({
-      type: 'actions',
-      elements: [
-        { type: 'button', text: { type: 'plain_text', text: 'View Saved Links' }, action_id: 'view_saved_links' },
-        { type: 'button', text: { type: 'plain_text', text: 'Delete Links' }, style: 'danger', action_id: 'open_delete_modal' }
-      ]
-    });
+    actionElements.push(
+      { type: 'button', text: { type: 'plain_text', text: 'View Saved Links' }, action_id: 'view_saved_links' },
+      { type: 'button', text: { type: 'plain_text', text: 'Delete Links' }, style: 'danger', action_id: 'open_delete_modal' }
+    );
   }
+  actionElements.push({ type: 'button', text: { type: 'plain_text', text: 'Settings' }, action_id: 'open_settings' });
+
+  blocks.push({ type: 'actions', elements: actionElements });
 
   return { type: 'home', blocks };
 }
@@ -140,6 +163,45 @@ app.event('app_home_opened', async ({ event, client }) => {
   await publishHomeView(client, event.user);
 });
 
+const SORT_OPTIONS = [
+  { text: { type: 'plain_text', text: 'Newest first' }, value: 'newest' },
+  { text: { type: 'plain_text', text: 'Alphabetical (A–Z)' }, value: 'alphabetical' }
+];
+
+app.action('open_settings', async ({ body, ack, client }) => {
+  await ack();
+  const { sortOrder } = getPreferences(body.user.id);
+  await client.views.open({
+    trigger_id: body.trigger_id,
+    view: {
+      type: 'modal',
+      callback_id: 'settings_modal',
+      title: { type: 'plain_text', text: 'Settings' },
+      blocks: [
+        {
+          type: 'input',
+          block_id: 'sort_order',
+          element: {
+            type: 'static_select',
+            action_id: 'sort_select',
+            initial_option: SORT_OPTIONS.find(o => o.value === sortOrder),
+            options: SORT_OPTIONS
+          },
+          label: { type: 'plain_text', text: 'Sort links by' }
+        }
+      ],
+      submit: { type: 'plain_text', text: 'Save' }
+    }
+  });
+});
+
+app.view('settings_modal', async ({ ack, view, body, client }) => {
+  await ack();
+  const sortOrder = view.state.values.sort_order.sort_select.selected_option.value;
+  savePreferences(body.user.id, { sortOrder });
+  await publishHomeView(client, body.user.id);
+});
+
 app.command('/save-link', async ({ command, ack, respond, client }) => {
   await ack();
   const url = command.text.trim();
@@ -148,7 +210,7 @@ app.command('/save-link', async ({ command, ack, respond, client }) => {
     return;
   }
   bookmarks.push({ userId: command.user_id, url, title: url });
-  saveBookmarks();
+  saveDb();
   await publishHomeView(client, command.user_id);
   await respond({
     response_type: 'ephemeral',
@@ -301,7 +363,7 @@ app.view('delete_links_modal', async ({ ack, view, body, client }) => {
     const idx = bookmarks.findIndex(b => b.userId === body.user.id && b.url === url);
     if (idx !== -1) bookmarks.splice(idx, 1);
   });
-  saveBookmarks();
+  saveDb();
   await publishHomeView(client, body.user.id);
   await ack({
     response_action: 'update',
