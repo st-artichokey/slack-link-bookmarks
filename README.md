@@ -12,7 +12,7 @@ A code-along companion to the "Building a Marketplace-Ready Slack App" series. E
 To see what changed between stages:
 
 ```bash
-git diff stage-04..stage-05
+git diff stage-05..stage-06
 ```
 
 ## Prerequisites
@@ -23,11 +23,17 @@ git diff stage-04..stage-05
 
 ---
 
-## Stage 05 — Slash Commands vs. Shortcuts
+## Stage 06 — App Home and Persistent Storage
 
-The starting point for stage 05. The app carries over everything through stage 04 (event listeners, interactive commands, modal flows, and the Block Kit share-links message). This stage explores the tradeoffs between entry points — slash commands and shortcuts — and how that choice affects Marketplace review.
+The starting point for stage 06. The app carries over everything through stage 05 (event listeners, interactive commands, modal flows, and the Block Kit share-links message) and adds durable storage so bookmarks survive restarts. This stage builds toward an App Home tab as a persistent entry point.
 
-### Features carried over from stage-04
+### New in stage-06
+
+- Bookmarks now persist to a local `bookmarks.db` JSON file instead of an in-memory array
+- `loadBookmarks()` hydrates saved links from disk on startup, falling back to an empty list if the file is missing or unreadable
+- `saveBookmarks()` writes the full collection back to disk after every save and delete
+
+### Features carried over from stage-05
 
 - `app.message('hello bot')` listener responds to a keyword in channel messages
 - `app.message('share links')` posts a Block Kit message listing the user's saved links to the channel

@@ -1,4 +1,6 @@
 const { App } = require('@slack/bolt');
+const fs = require('fs');
+const path = require('path');
 
 const app = new App({
   token: process.env.SLACK_BOT_TOKEN,
@@ -7,7 +9,21 @@ const app = new App({
   appToken: process.env.SLACK_APP_TOKEN,
 });
 
-const bookmarks = [];
+const DB_PATH = path.join(__dirname, 'bookmarks.db');
+
+function loadBookmarks() {
+  try {
+    return JSON.parse(fs.readFileSync(DB_PATH, 'utf8')).bookmarks;
+  } catch {
+    return [];
+  }
+}
+
+function saveBookmarks() {
+  fs.writeFileSync(DB_PATH, JSON.stringify({ bookmarks }, null, 2));
+}
+
+const bookmarks = loadBookmarks();
 
 // app.event('app_mention', async ({ event, say }) => {
 //   await say({ text: `Hello <@${event.user}>` });
@@ -69,7 +85,62 @@ app.message('share links', async ({ message, client }) => {
   });
 });
 
-app.command('/save-link', async ({ command, ack, respond }) => {
+function buildHomeView(userId) {
+  const userBookmarks = bookmarks.filter(b => b.userId === userId);
+  const blocks = [
+    {
+      type: 'header',
+      text: { type: 'plain_text', text: ':link: Your Saved Links' }
+    },
+    {
+      type: 'context',
+      elements: [
+        {
+          type: 'mrkdwn',
+          text: `${userBookmarks.length} saved link${userBookmarks.length === 1 ? '' : 's'} · Use \`/save-link <url>\` to add more`
+        }
+      ]
+    },
+    { type: 'divider' }
+  ];
+
+  if (userBookmarks.length === 0) {
+    blocks.push({
+      type: 'section',
+      text: { type: 'mrkdwn', text: 'You have no saved links yet. Save your first with `/save-link <url>`.' }
+    });
+  } else {
+    userBookmarks.forEach(b => {
+      blocks.push({
+        type: 'section',
+        text: { type: 'mrkdwn', text: `• <${b.url}|${b.title}>` }
+      });
+    });
+    blocks.push({
+      type: 'actions',
+      elements: [
+        { type: 'button', text: { type: 'plain_text', text: 'View Saved Links' }, action_id: 'view_saved_links' },
+        { type: 'button', text: { type: 'plain_text', text: 'Delete Links' }, style: 'danger', action_id: 'open_delete_modal' }
+      ]
+    });
+  }
+
+  return { type: 'home', blocks };
+}
+
+async function publishHomeView(client, userId) {
+  await client.views.publish({
+    user_id: userId,
+    view: buildHomeView(userId)
+  });
+}
+
+app.event('app_home_opened', async ({ event, client }) => {
+  if (event.tab !== 'home') return;
+  await publishHomeView(client, event.user);
+});
+
+app.command('/save-link', async ({ command, ack, respond, client }) => {
   await ack();
   const url = command.text.trim();
   if (!url) {
@@ -77,6 +148,8 @@ app.command('/save-link', async ({ command, ack, respond }) => {
     return;
   }
   bookmarks.push({ userId: command.user_id, url, title: url });
+  saveBookmarks();
+  await publishHomeView(client, command.user_id);
   await respond({
     response_type: 'ephemeral',
     text: `Saved: <${url}>`,
@@ -166,6 +239,32 @@ app.view('add_links_modal', async ({ ack, view, body }) => {
   });
 });
 
+function buildDeleteModalView(userId) {
+  const userBookmarks = bookmarks.filter(b => b.userId === userId);
+  const options = userBookmarks.map((b, i) => ({
+    text: { type: 'plain_text', text: b.title.slice(0, 75) },
+    value: String(i)
+  }));
+  return {
+    type: 'modal',
+    callback_id: 'delete_links_modal',
+    title: { type: 'plain_text', text: 'Delete Links' },
+    blocks: [
+      {
+        type: 'input',
+        block_id: 'links_to_delete',
+        element: {
+          type: 'checkboxes',
+          action_id: 'selected_links',
+          options
+        },
+        label: { type: 'plain_text', text: 'Select links to delete' }
+      }
+    ],
+    submit: { type: 'plain_text', text: 'Delete' }
+  };
+}
+
 app.command('/delete-links', async ({ command, ack, body, client }) => {
   await ack();
   const userBookmarks = bookmarks.filter(b => b.userId === command.user_id);
@@ -177,34 +276,23 @@ app.command('/delete-links', async ({ command, ack, body, client }) => {
     });
     return;
   }
-  const options = userBookmarks.map((b, i) => ({
-    text: { type: 'plain_text', text: b.title.slice(0, 75) },
-    value: String(i)
-  }));
   await client.views.open({
     trigger_id: body.trigger_id,
-    view: {
-      type: 'modal',
-      callback_id: 'delete_links_modal',
-      title: { type: 'plain_text', text: 'Delete Links' },
-      blocks: [
-        {
-          type: 'input',
-          block_id: 'links_to_delete',
-          element: {
-            type: 'checkboxes',
-            action_id: 'selected_links',
-            options
-          },
-          label: { type: 'plain_text', text: 'Select links to delete' }
-        }
-      ],
-      submit: { type: 'plain_text', text: 'Delete' }
-    }
+    view: buildDeleteModalView(command.user_id)
   });
 });
 
-app.view('delete_links_modal', async ({ ack, view, body }) => {
+app.action('open_delete_modal', async ({ body, ack, client }) => {
+  await ack();
+  const userBookmarks = bookmarks.filter(b => b.userId === body.user.id);
+  if (userBookmarks.length === 0) return;
+  await client.views.open({
+    trigger_id: body.trigger_id,
+    view: buildDeleteModalView(body.user.id)
+  });
+});
+
+app.view('delete_links_modal', async ({ ack, view, body, client }) => {
   const selected = view.state.values.links_to_delete.selected_links.selected_options;
   const userBookmarks = bookmarks.filter(b => b.userId === body.user.id);
   const indexesToDelete = selected.map(opt => Number(opt.value));
@@ -213,6 +301,8 @@ app.view('delete_links_modal', async ({ ack, view, body }) => {
     const idx = bookmarks.findIndex(b => b.userId === body.user.id && b.url === url);
     if (idx !== -1) bookmarks.splice(idx, 1);
   });
+  saveBookmarks();
+  await publishHomeView(client, body.user.id);
   await ack({
     response_action: 'update',
     view: {

@@ -10,6 +10,11 @@
       "display_name": "Link Bookmarks",
       "always_online": false
     },
+    "app_home": {
+      "home_tab_enabled": true,
+      "messages_tab_enabled": false,
+      "messages_tab_read_only_enabled": true
+    },
     "slash_commands": [
       {
         "command": "/save-link",
@@ -54,7 +59,7 @@
   },
   "settings": {
     "event_subscriptions": {
-      "bot_events": ["app_mention", "message.channels"]
+      "bot_events": ["app_mention", "message.channels", "app_home_opened"]
     },
     "interactivity": {
       "is_enabled": true
