@@ -23,21 +23,23 @@ git diff stage-05..stage-06
 
 ---
 
-## Stage 06 — App Home and Persistent Storage
+## Stage 06 — App Home
 
-The starting point for stage 06. The app carries over everything through stage 05 (event listeners, interactive commands, modal flows, and the Block Kit share-links message) and adds durable storage so bookmarks survive restarts. This stage builds toward an App Home tab as a persistent entry point.
+The app carries over everything through stage 05 (event listeners, interactive commands, modal flows, and the Block Kit share-links message) and adds an App Home tab as a persistent, in-app entry point. Bookmarks are held in memory and mirrored to a local JSON file as interim storage; a real datastore comes in the next stage.
 
 ### New in this stage
 
-- Bookmarks now persist to a local `bookmarks.db` JSON file instead of an in-memory array
-- `loadBookmarks()` hydrates saved links from disk on startup, falling back to an empty list if the file is missing or unreadable
-- `saveBookmarks()` writes the full collection back to disk after every save and delete
+- `app.event('app_home_opened')` publishes an App Home tab via `buildHomeView`, showing the user's saved links, their notification preference, and a recent-activity feed derived from their bookmarks
+- `app.action('open_settings')` opens a settings modal for the sort order and notifications preference; `app.view('settings_modal')` persists it through `savePreferences`
+- `app.action('open_edit_modal')` opens an "Edit Saved Links" modal with a title and URL input per bookmark; `app.view('edit_links_modal')` writes the edits back
+- `/save-link` and the "Add Links" modal now accept several URLs at once, split on commas or new lines via a shared `parseLinks` helper
+- `loadDb()` / `saveDb()` mirror bookmarks and preferences to a local `bookmarks.db` JSON file so they survive a restart during development
 
 ### From previous stages
 
 - `app.message('hello bot')` listener responds to a keyword in channel messages
 - `app.message('share links')` posts a Block Kit message listing the user's saved links to the channel
-- `/save-link` command saves a URL and responds with a "View Saved Links" button
+- `/save-link` command saves one or more URLs and responds with a "View Saved Links" button
 - `app.action('view_saved_links')` opens a modal displaying the user's bookmarks
 - `/show-links` command lists saved links with optional keyword filtering
 - `/delete-links` command opens a modal with checkboxes to select links for removal
