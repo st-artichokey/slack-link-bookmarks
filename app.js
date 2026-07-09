@@ -363,6 +363,10 @@ function buildEditModalView(userId) {
     if (i > 0) blocks.push({ type: 'divider' });
     blocks.push(
       {
+        type: 'context',
+        elements: [{ type: 'mrkdwn', text: `*${b.title}* · <${b.url}>` }]
+      },
+      {
         type: 'input',
         block_id: `title_${i}`,
         element: {
@@ -370,7 +374,7 @@ function buildEditModalView(userId) {
           action_id: 'title_input',
           initial_value: b.title
         },
-        label: { type: 'plain_text', text: `Title ${i + 1}` }
+        label: { type: 'plain_text', text: 'Title' }
       },
       {
         type: 'input',
@@ -380,7 +384,7 @@ function buildEditModalView(userId) {
           action_id: 'url_input',
           initial_value: b.url
         },
-        label: { type: 'plain_text', text: `URL ${i + 1}` }
+        label: { type: 'plain_text', text: 'URL' }
       }
     );
   });
