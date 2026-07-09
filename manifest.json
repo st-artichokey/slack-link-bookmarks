@@ -1,8 +1,8 @@
 {
   "display_information": {
     "name": "Link Bookmarks",
-    "description": "Save and organize links from Slack messages",
-    "long_description": "Link Bookmarks lets you save links from any Slack message into a personal collection. Browse, search, and share your saved links without leaving Slack. Add it to any channel and type \"hello bot\" or use the slash command `/save-link` to save your first bookmark",
+    "description": "Save, organize, edit, and share links without leaving Slack.",
+    "long_description": "Link Bookmarks gives each person in your workspace a personal collection of saved links. Save a URL with a slash command, manage your collection from the app's Home tab, and share your list into a channel when you want to.\n\nFeatures:\n• Save one or more links at once with /save-link (comma or line separated)\n• Manage your collection from the App Home tab: edit link titles and URLs, or delete links you no longer need\n• Search your saved links by keyword with /show-links\n• Remove links through a checklist with /delete-links\n• Add several links at once from the \"Add Links\" global shortcut\n• Open your saved list anytime from the \"Show Saved Links\" global shortcut\n• Set a sort order and notification preference in the Home tab settings\n• Post your saved links to a channel by messaging \"share links\"\n\nUse cases:\n• Keep reference links, docs, and articles in one place while you work in Slack\n• Collect resources during a project and share the set with a channel when it's ready\n• Give each teammate their own private, searchable bookmark list\n\nSetup: Works immediately after install. Open the App Home tab to view your bookmarks and save your first link with /save-link.",
     "background_color": "#4A154B"
   },
   "features": {
