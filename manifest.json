@@ -32,12 +32,6 @@
       }
     ],
     "shortcuts": [
-      {
-        "name": "Save Message",
-        "type": "message",
-        "callback_id": "save_message_shortcut",
-        "description": "Save this message for later"
-      },
        {
         "name": "Show Saved Links",
         "type": "global",

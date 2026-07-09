@@ -148,7 +148,7 @@ function buildHomeView(userId) {
       });
     });
     actionElements.push(
-      { type: 'button', text: { type: 'plain_text', text: 'View Saved Links' }, action_id: 'view_saved_links' },
+      { type: 'button', text: { type: 'plain_text', text: 'Edit Saved Links' }, action_id: 'open_edit_modal' },
       { type: 'button', text: { type: 'plain_text', text: 'Delete Links' }, style: 'danger', action_id: 'open_delete_modal' }
     );
   }
@@ -333,7 +333,6 @@ app.view('add_links_modal', async ({ ack, view, body, client }) => {
   urls.forEach(url => {
     bookmarks.push({ userId: body.user.id, url, title: url });
   });
-  await publishHomeView(client, body.user.id);
   await ack({
     response_action: 'update',
     view: {
@@ -347,7 +346,52 @@ app.view('add_links_modal', async ({ ack, view, body, client }) => {
       ]
     }
   });
+  await publishHomeView(client, body.user.id);
 });
+
+function buildEditModalView(userId) {
+  const userBookmarks = bookmarks.filter(b => b.userId === userId);
+  if (userBookmarks.length === 0) {
+    return {
+      type: 'modal',
+      title: { type: 'plain_text', text: 'Edit Saved Links' },
+      blocks: [{ type: 'section', text: { type: 'mrkdwn', text: 'No saved links to edit yet.' } }]
+    };
+  }
+  const blocks = [];
+  userBookmarks.forEach((b, i) => {
+    if (i > 0) blocks.push({ type: 'divider' });
+    blocks.push(
+      {
+        type: 'input',
+        block_id: `title_${i}`,
+        element: {
+          type: 'plain_text_input',
+          action_id: 'title_input',
+          initial_value: b.title
+        },
+        label: { type: 'plain_text', text: `Title ${i + 1}` }
+      },
+      {
+        type: 'input',
+        block_id: `url_${i}`,
+        element: {
+          type: 'plain_text_input',
+          action_id: 'url_input',
+          initial_value: b.url
+        },
+        label: { type: 'plain_text', text: `URL ${i + 1}` }
+      }
+    );
+  });
+  return {
+    type: 'modal',
+    callback_id: 'edit_links_modal',
+    title: { type: 'plain_text', text: 'Edit Saved Links' },
+    blocks,
+    submit: { type: 'plain_text', text: 'Save' }
+  };
+}
 
 function buildDeleteModalView(userId) {
   const userBookmarks = bookmarks.filter(b => b.userId === userId);
@@ -412,7 +456,6 @@ app.view('delete_links_modal', async ({ ack, view, body, client }) => {
     if (idx !== -1) bookmarks.splice(idx, 1);
   });
   saveDb();
-  await publishHomeView(client, body.user.id);
   await ack({
     response_action: 'update',
     view: {
@@ -426,6 +469,41 @@ app.view('delete_links_modal', async ({ ack, view, body, client }) => {
       ]
     }
   });
+  await publishHomeView(client, body.user.id);
+});
+
+app.action('open_edit_modal', async ({ body, ack, client }) => {
+  await ack();
+  const userBookmarks = bookmarks.filter(b => b.userId === body.user.id);
+  if (userBookmarks.length === 0) return;
+  await client.views.open({
+    trigger_id: body.trigger_id,
+    view: buildEditModalView(body.user.id)
+  });
+});
+
+app.view('edit_links_modal', async ({ ack, view, body, client }) => {
+  const userBookmarks = bookmarks.filter(b => b.userId === body.user.id);
+  userBookmarks.forEach((b, i) => {
+    const title = view.state.values[`title_${i}`].title_input.value.trim();
+    const url = view.state.values[`url_${i}`].url_input.value.trim();
+    b.title = title;
+    b.url = url;
+  });
+  await ack({
+    response_action: 'update',
+    view: {
+      type: 'modal',
+      title: { type: 'plain_text', text: 'Edit Saved Links' },
+      blocks: [
+        {
+          type: 'section',
+          text: { type: 'mrkdwn', text: `Updated ${userBookmarks.length} link${userBookmarks.length === 1 ? '' : 's'}.` }
+        }
+      ]
+    }
+  });
+  await publishHomeView(client, body.user.id);
 });
 
 app.command('/show-links', async ({ command, ack, respond }) => {
