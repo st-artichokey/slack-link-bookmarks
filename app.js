@@ -11,7 +11,7 @@ const app = new App({
 
 const DB_PATH = path.join(__dirname, 'bookmarks.db');
 
-const DEFAULT_PREFERENCES = { sortOrder: 'newest' };
+const DEFAULT_PREFERENCES = { sortOrder: 'newest', notifications: true };
 
 function loadDb() {
   try {
@@ -98,6 +98,10 @@ app.message('share links', async ({ message, client }) => {
   });
 });
 
+function parseLinks(raw) {
+  return (raw || '').split(/[\n,]+/).map(u => u.trim()).filter(Boolean);
+}
+
 function sortBookmarks(userBookmarks, sortOrder) {
   if (sortOrder === 'alphabetical') {
     return [...userBookmarks].sort((a, b) => a.title.localeCompare(b.title));
@@ -106,7 +110,7 @@ function sortBookmarks(userBookmarks, sortOrder) {
 }
 
 function buildHomeView(userId) {
-  const { sortOrder } = getPreferences(userId);
+  const { sortOrder, notifications } = getPreferences(userId);
   const userBookmarks = bookmarks.filter(b => b.userId === userId);
   const sortLabel = sortOrder === 'alphabetical' ? 'A–Z' : 'Newest first';
   const blocks = [
@@ -122,6 +126,10 @@ function buildHomeView(userId) {
           text: `${userBookmarks.length} saved link${userBookmarks.length === 1 ? '' : 's'} · Sorted by ${sortLabel}`
         }
       ]
+    },
+    {
+      type: 'section',
+      text: { type: 'mrkdwn', text: `*Notifications:* ${notifications ? 'On' : 'Off'}` }
     },
     { type: 'divider' }
   ];
@@ -148,6 +156,25 @@ function buildHomeView(userId) {
 
   blocks.push({ type: 'actions', elements: actionElements });
 
+  blocks.push(
+    { type: 'divider' },
+    { type: 'header', text: { type: 'plain_text', text: 'Recent Activity' } }
+  );
+  const recentActivity = [...userBookmarks].reverse().slice(0, 10);
+  if (recentActivity.length === 0) {
+    blocks.push({
+      type: 'section',
+      text: { type: 'mrkdwn', text: 'No activity yet. Save a link with `/save-link <url>` to see it here.' }
+    });
+  } else {
+    recentActivity.forEach(b => {
+      blocks.push({
+        type: 'section',
+        text: { type: 'mrkdwn', text: `• Saved <${b.url}|${b.title}>` }
+      });
+    });
+  }
+
   return { type: 'home', blocks };
 }
 
@@ -163,14 +190,20 @@ app.event('app_home_opened', async ({ event, client }) => {
   await publishHomeView(client, event.user);
 });
 
+
 const SORT_OPTIONS = [
   { text: { type: 'plain_text', text: 'Newest first' }, value: 'newest' },
   { text: { type: 'plain_text', text: 'Alphabetical (A–Z)' }, value: 'alphabetical' }
 ];
 
+const NOTIFICATION_OPTIONS = [
+  { text: { type: 'plain_text', text: 'On' }, value: 'on' },
+  { text: { type: 'plain_text', text: 'Off' }, value: 'off' }
+];
+
 app.action('open_settings', async ({ body, ack, client }) => {
   await ack();
-  const { sortOrder } = getPreferences(body.user.id);
+  const { sortOrder, notifications } = getPreferences(body.user.id);
   await client.views.open({
     trigger_id: body.trigger_id,
     view: {
@@ -188,6 +221,17 @@ app.action('open_settings', async ({ body, ack, client }) => {
             options: SORT_OPTIONS
           },
           label: { type: 'plain_text', text: 'Sort links by' }
+        },
+        {
+          type: 'input',
+          block_id: 'notifications',
+          element: {
+            type: 'static_select',
+            action_id: 'notifications_select',
+            initial_option: NOTIFICATION_OPTIONS.find(o => o.value === (notifications ? 'on' : 'off')),
+            options: NOTIFICATION_OPTIONS
+          },
+          label: { type: 'plain_text', text: 'Notifications' }
         }
       ],
       submit: { type: 'plain_text', text: 'Save' }
@@ -198,25 +242,29 @@ app.action('open_settings', async ({ body, ack, client }) => {
 app.view('settings_modal', async ({ ack, view, body, client }) => {
   await ack();
   const sortOrder = view.state.values.sort_order.sort_select.selected_option.value;
-  savePreferences(body.user.id, { sortOrder });
+  const notifications = view.state.values.notifications.notifications_select.selected_option.value === 'on';
+  savePreferences(body.user.id, { sortOrder, notifications });
   await publishHomeView(client, body.user.id);
 });
 
 app.command('/save-link', async ({ command, ack, respond, client }) => {
   await ack();
-  const url = command.text.trim();
-  if (!url) {
-    await respond({ response_type: 'ephemeral', text: 'Usage: /save-link <url>' });
+  const urls = parseLinks(command.text);
+  if (urls.length === 0) {
+    await respond({ response_type: 'ephemeral', text: 'Usage: /save-link <url>[, <url>, ...]' });
     return;
   }
-  bookmarks.push({ userId: command.user_id, url, title: url });
+  urls.forEach(url => {
+    bookmarks.push({ userId: command.user_id, url, title: url });
+  });
   saveDb();
   await publishHomeView(client, command.user_id);
+  const summary = `Saved ${urls.length} link${urls.length === 1 ? '' : 's'}.`;
   await respond({
     response_type: 'ephemeral',
-    text: `Saved: <${url}>`,
+    text: summary,
     blocks: [
-      { type: 'section', text: { type: 'mrkdwn', text: `Saved: <${url}>` } },
+      { type: 'section', text: { type: 'mrkdwn', text: summary } },
       { type: 'actions', elements: [
         { type: 'button', text: { type: 'plain_text', text: 'View Saved Links' }, action_id: 'view_saved_links' }
       ]}
@@ -272,7 +320,7 @@ app.shortcut('add_links', async ({ shortcut, ack, client }) => {
             action_id: 'links_input',
             multiline: true
           },
-          label: { type: 'plain_text', text: 'Paste one link per line' }
+          label: { type: 'plain_text', text: 'Paste links separated by commas or new lines' }
         }
       ],
       submit: { type: 'plain_text', text: 'Save' }
@@ -280,12 +328,12 @@ app.shortcut('add_links', async ({ shortcut, ack, client }) => {
   });
 });
 
-app.view('add_links_modal', async ({ ack, view, body }) => {
-  const raw = view.state.values.links_to_add.links_input.value || '';
-  const urls = raw.split('\n').map(u => u.trim()).filter(Boolean);
+app.view('add_links_modal', async ({ ack, view, body, client }) => {
+  const urls = parseLinks(view.state.values.links_to_add.links_input.value);
   urls.forEach(url => {
     bookmarks.push({ userId: body.user.id, url, title: url });
   });
+  await publishHomeView(client, body.user.id);
   await ack({
     response_action: 'update',
     view: {
