@@ -187,8 +187,28 @@ async function publishHomeView(client, userId) {
 
 app.event('app_home_opened', async ({ event, client }) => {
   if (event.tab !== 'home') return;
-  await publishHomeView(client, event.user);
+
+  const lastUpdate = await getLastUpdateTime(event.user);
+  const stateChanged = await hasStateChanged(event.user, lastUpdate);
+
+  if (!event.view || stateChanged) {
+    await publishHomeView(client, event.user);
+  }
 });
+
+function getLastUpdateTime(userId) {
+  return bookmarks
+    .filter(b => b.userId === userId)
+    .reduce((latest, b) => Math.max(latest, b.updatedAt || 0), 0);
+}
+
+const lastSeenUpdate = {};
+
+function hasStateChanged(userId, lastUpdate) {
+  const changed = lastUpdate > (lastSeenUpdate[userId] || 0);
+  lastSeenUpdate[userId] = lastUpdate;
+  return changed;
+}
 
 
 const SORT_OPTIONS = [
@@ -255,7 +275,7 @@ app.command('/save-link', async ({ command, ack, respond, client }) => {
     return;
   }
   urls.forEach(url => {
-    bookmarks.push({ userId: command.user_id, url, title: url });
+    bookmarks.push({ userId: command.user_id, url, title: url, updatedAt: Date.now() });
   });
   saveDb();
   await publishHomeView(client, command.user_id);
@@ -331,7 +351,7 @@ app.shortcut('add_links', async ({ shortcut, ack, client }) => {
 app.view('add_links_modal', async ({ ack, view, body, client }) => {
   const urls = parseLinks(view.state.values.links_to_add.links_input.value);
   urls.forEach(url => {
-    bookmarks.push({ userId: body.user.id, url, title: url });
+    bookmarks.push({ userId: body.user.id, url, title: url, updatedAt: Date.now() });
   });
   await ack({
     response_action: 'update',
@@ -493,6 +513,7 @@ app.view('edit_links_modal', async ({ ack, view, body, client }) => {
     const url = view.state.values[`url_${i}`].url_input.value.trim();
     b.title = title;
     b.url = url;
+    b.updatedAt = Date.now();
   });
   await ack({
     response_action: 'update',
@@ -534,6 +555,45 @@ app.command('/show-links', async ({ command, ack, respond }) => {
     blocks: [
       { type: 'section', text: { type: 'mrkdwn', text: `${header}\n${list}` } }
     ]
+  });
+});
+
+function buildTabbedHome(activeTab, userId) {
+  const tabs = ['overview', 'activity', 'settings'];
+  const tabButtons = tabs.map(tab => ({
+    type: 'button',
+    text: { type: 'plain_text', text: tab.charAt(0).toUpperCase() + tab.slice(1) },
+    action_id: `home_tab_${tab}`,
+    ...(tab === activeTab ? { style: 'primary' } : {})
+  }));
+
+  const blocks = [
+    { type: 'actions', elements: tabButtons },
+    { type: 'divider' }
+  ];
+
+  switch (activeTab) {
+    case 'overview':
+      blocks.push(...buildOverviewBlocks(userId));
+      break;
+    case 'activity':
+      blocks.push(...buildActivityBlocks(userId));
+      break;
+    case 'settings':
+      blocks.push(...buildSettingsBlocks(userId));
+      break;
+  }
+
+  return blocks;
+}
+
+// Handle tab switching
+app.action(/^home_tab_/, async ({ action, body, ack, client }) => {
+  await ack();
+  const tab = action.action_id.replace('home_tab_', '');
+  await client.views.publish({
+    user_id: body.user.id,
+    view: { type: 'home', blocks: buildTabbedHome(tab, body.user.id) }
   });
 });
 
