@@ -29,7 +29,7 @@ The app carries over everything through stage 05 (event listeners, interactive c
 
 ### New in this stage
 
-- `app.event('app_home_opened')` publishes an App Home tab via `buildHomeView`, showing the user's saved links, their notification preference, and a recent-activity feed derived from their bookmarks
+- `app.event('app_home_opened')` publishes a tabbed App Home tab via `buildTabbedHome`, with Overview (saved links plus edit/delete actions), Activity (a recent-activity feed), and Settings (sort order and notification preference) tabs; it skips the `views.publish` call when nothing has changed since the user last saw the view
 - `app.action('open_settings')` opens a settings modal for the sort order and notifications preference; `app.view('settings_modal')` persists it through `savePreferences`
 - `app.action('open_edit_modal')` opens an "Edit Saved Links" modal with a title and URL input per bookmark; `app.view('edit_links_modal')` writes the edits back
 - `/save-link` and the "Add Links" modal now accept several URLs at once, split on commas or new lines via a shared `parseLinks` helper

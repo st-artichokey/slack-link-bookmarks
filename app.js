@@ -109,79 +109,10 @@ function sortBookmarks(userBookmarks, sortOrder) {
   return [...userBookmarks].reverse();
 }
 
-function buildHomeView(userId) {
-  const { sortOrder, notifications } = getPreferences(userId);
-  const userBookmarks = bookmarks.filter(b => b.userId === userId);
-  const sortLabel = sortOrder === 'alphabetical' ? 'A–Z' : 'Newest first';
-  const blocks = [
-    {
-      type: 'header',
-      text: { type: 'plain_text', text: ':link: Your Saved Links' }
-    },
-    {
-      type: 'context',
-      elements: [
-        {
-          type: 'mrkdwn',
-          text: `${userBookmarks.length} saved link${userBookmarks.length === 1 ? '' : 's'} · Sorted by ${sortLabel}`
-        }
-      ]
-    },
-    {
-      type: 'section',
-      text: { type: 'mrkdwn', text: `*Notifications:* ${notifications ? 'On' : 'Off'}` }
-    },
-    { type: 'divider' }
-  ];
-
-  const actionElements = [];
-  if (userBookmarks.length === 0) {
-    blocks.push({
-      type: 'section',
-      text: { type: 'mrkdwn', text: 'You have no saved links yet. Save your first with `/save-link <url>`.' }
-    });
-  } else {
-    sortBookmarks(userBookmarks, sortOrder).forEach(b => {
-      blocks.push({
-        type: 'section',
-        text: { type: 'mrkdwn', text: `• <${b.url}|${b.title}>` }
-      });
-    });
-    actionElements.push(
-      { type: 'button', text: { type: 'plain_text', text: 'Edit Saved Links' }, action_id: 'open_edit_modal' },
-      { type: 'button', text: { type: 'plain_text', text: 'Delete Links' }, style: 'danger', action_id: 'open_delete_modal' }
-    );
-  }
-  actionElements.push({ type: 'button', text: { type: 'plain_text', text: 'Settings' }, action_id: 'open_settings' });
-
-  blocks.push({ type: 'actions', elements: actionElements });
-
-  blocks.push(
-    { type: 'divider' },
-    { type: 'header', text: { type: 'plain_text', text: 'Recent Activity' } }
-  );
-  const recentActivity = [...userBookmarks].reverse().slice(0, 10);
-  if (recentActivity.length === 0) {
-    blocks.push({
-      type: 'section',
-      text: { type: 'mrkdwn', text: 'No activity yet. Save a link with `/save-link <url>` to see it here.' }
-    });
-  } else {
-    recentActivity.forEach(b => {
-      blocks.push({
-        type: 'section',
-        text: { type: 'mrkdwn', text: `• Saved <${b.url}|${b.title}>` }
-      });
-    });
-  }
-
-  return { type: 'home', blocks };
-}
-
-async function publishHomeView(client, userId) {
+async function publishHomeView(client, userId, activeTab = 'overview') {
   await client.views.publish({
     user_id: userId,
-    view: buildHomeView(userId)
+    view: { type: 'home', blocks: buildTabbedHome(activeTab, userId) }
   });
 }
 
@@ -557,6 +488,75 @@ app.command('/show-links', async ({ command, ack, respond }) => {
     ]
   });
 });
+
+function buildOverviewBlocks(userId) {
+  const { sortOrder } = getPreferences(userId);
+  const userBookmarks = bookmarks.filter(b => b.userId === userId);
+  const sortLabel = sortOrder === 'alphabetical' ? 'A–Z' : 'Newest first';
+  const blocks = [
+    { type: 'header', text: { type: 'plain_text', text: ':link: Your Saved Links' } },
+    {
+      type: 'context',
+      elements: [{
+        type: 'mrkdwn',
+        text: `${userBookmarks.length} saved link${userBookmarks.length === 1 ? '' : 's'} · Sorted by ${sortLabel}`
+      }]
+    }
+  ];
+  if (userBookmarks.length === 0) {
+    blocks.push({
+      type: 'section',
+      text: { type: 'mrkdwn', text: 'You have no saved links yet. Save your first with `/save-link <url>`.' }
+    });
+  } else {
+    sortBookmarks(userBookmarks, sortOrder).forEach(b => {
+      blocks.push({ type: 'section', text: { type: 'mrkdwn', text: `• <${b.url}|${b.title}>` } });
+    });
+    blocks.push({
+      type: 'actions',
+      elements: [
+        { type: 'button', text: { type: 'plain_text', text: 'Edit Saved Links' }, action_id: 'open_edit_modal' },
+        { type: 'button', text: { type: 'plain_text', text: 'Delete Links' }, style: 'danger', action_id: 'open_delete_modal' }
+      ]
+    });
+  }
+  return blocks;
+}
+
+function buildActivityBlocks(userId) {
+  const userBookmarks = bookmarks.filter(b => b.userId === userId);
+  const blocks = [
+    { type: 'header', text: { type: 'plain_text', text: 'Recent Activity' } }
+  ];
+  const recentActivity = [...userBookmarks].reverse().slice(0, 10);
+  if (recentActivity.length === 0) {
+    blocks.push({
+      type: 'section',
+      text: { type: 'mrkdwn', text: 'No activity yet. Save a link with `/save-link <url>` to see it here.' }
+    });
+  } else {
+    recentActivity.forEach(b => {
+      blocks.push({ type: 'section', text: { type: 'mrkdwn', text: `• Saved <${b.url}|${b.title}>` } });
+    });
+  }
+  return blocks;
+}
+
+function buildSettingsBlocks(userId) {
+  const { sortOrder, notifications } = getPreferences(userId);
+  const sortLabel = sortOrder === 'alphabetical' ? 'A–Z' : 'Newest first';
+  return [
+    { type: 'header', text: { type: 'plain_text', text: 'Settings' } },
+    { type: 'section', text: { type: 'mrkdwn', text: `*Sort links by:* ${sortLabel}` } },
+    { type: 'section', text: { type: 'mrkdwn', text: `*Notifications:* ${notifications ? 'On' : 'Off'}` } },
+    {
+      type: 'actions',
+      elements: [
+        { type: 'button', text: { type: 'plain_text', text: 'Edit Settings' }, action_id: 'open_settings' }
+      ]
+    }
+  ];
+}
 
 function buildTabbedHome(activeTab, userId) {
   const tabs = ['overview', 'activity', 'settings'];
