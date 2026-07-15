@@ -55,6 +55,16 @@ app.message('hello bot', async ({ message, say }) => {
   await say(`Hello, <@${message.user}>.`);
 });
 
+app.event('message', async ({ event, client }) => {
+  // Only handle newly posted DMs. bot_id/subtype guards drop the bot's own
+  // replies (and edits/deletes) so we don't answer ourselves in a loop.
+  if (event.channel_type !== 'im' || event.bot_id || event.subtype) return;
+  await client.chat.postMessage({
+    channel: event.channel,
+    text: `Save a link anytime with \`/save-link <url>\`, or open the Home tab to manage your collection.`
+  });
+});
+
 app.message('share links', async ({ message, client }) => {
   const userBookmarks = bookmarks.filter(b => b.userId === message.user);
 
@@ -587,7 +597,9 @@ function buildTabbedHome(activeTab, userId) {
   return blocks;
 }
 
-// Handle tab switching
+// Handle tab switching. Switching works here, but new tab markup only reaches
+// users on app_home_opened when their bookmark data changes, not on UI changes
+// alone. 
 app.action(/^home_tab_/, async ({ action, body, ack, client }) => {
   await ack();
   const tab = action.action_id.replace('home_tab_', '');
