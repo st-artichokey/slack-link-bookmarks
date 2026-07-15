@@ -12,7 +12,7 @@ A code-along companion to the "Building a Marketplace-Ready Slack App" series. E
 To see what changed between stages:
 
 ```bash
-git diff stage-05..stage-06
+git diff stage-06..stage-07
 ```
 
 ## Prerequisites
@@ -23,20 +23,24 @@ git diff stage-05..stage-06
 
 ---
 
-## Stage 06 — App Home
+## Stage 07 — Persistent Storage
 
-The app carries over everything through stage 05 (event listeners, interactive commands, modal flows, and the Block Kit share-links message) and adds an App Home tab as a persistent, in-app entry point. Bookmarks are held in memory and mirrored to a local JSON file as interim storage; a real datastore comes in the next stage.
+Through stage 06 the app held bookmarks and preferences in memory, mirrored to a local JSON file. That works for a single-process dev app but doesn't survive as real infrastructure: there's no schema, no concurrent-safe writes, and every read scans the whole file. This stage replaces that interim storage with a real SQLite database, routes every read and write through a single query seam, and moves the whole storage layer into its own `db.js` module so `app.js` is left with just the Slack wiring.
 
 ### New in this stage
 
-- `app.event('app_home_opened')` publishes a tabbed App Home tab via `buildTabbedHome`, with Overview (saved links plus edit/delete actions), Activity (a recent-activity feed), and Settings (sort order and notification preference) tabs; it skips the `views.publish` call when nothing has changed since the user last saw the view
-- `app.action('open_settings')` opens a settings modal for the sort order and notifications preference; `app.view('settings_modal')` persists it through `savePreferences`
-- `app.action('open_edit_modal')` opens an "Edit Saved Links" modal with a title and URL input per bookmark; `app.view('edit_links_modal')` writes the edits back
-- `/save-link` and the "Add Links" modal now accept several URLs at once, split on commas or new lines via a shared `parseLinks` helper
-- `loadDb()` / `saveDb()` mirror bookmarks and preferences to a local `bookmarks.db` JSON file so they survive a restart during development
+- A new `db.js` module owns the database connection, schema, and every data-access function; `app.js` pulls them in with a single `require('./db')`, keeping storage concerns out of the Slack handlers
+- A SQLite database (via `better-sqlite3`) replaces the JSON file, with `bookmarks` and `preferences` tables created on startup and WAL journaling enabled
+- A single `query(text, params)` seam wraps all database access — reads return `{ rows }`, writes return change metadata — so the storage layer stays swappable (for example, moving to Postgres later touches only `query()`)
+- `getUserBookmarks`, `addBookmark`, `updateBookmark`, `deleteBookmark`, `getLastUpdateTime`, and the SQLite-backed `getPreferences`/`savePreferences` (an upsert) all go through that seam and scope every query by `user_id`
+- The edit and delete modals now key off stable row `id`s instead of array positions, so links can be added or removed between opening a modal and submitting it without corrupting the target
 
 ### From previous stages
 
+- `app.event('app_home_opened')` publishes a tabbed App Home tab via `buildTabbedHome`, with Overview, Activity, and Settings tabs; it skips the `views.publish` call when nothing has changed since the user last saw the view
+- `app.action('open_settings')` and `app.view('settings_modal')` manage the sort order and notifications preference
+- `app.action('open_edit_modal')` and `app.view('edit_links_modal')` handle the "Edit Saved Links" modal
+- `/save-link` and the "Add Links" modal accept several URLs at once, split on commas or new lines via a shared `parseLinks` helper
 - `app.message('hello bot')` listener responds to a keyword in channel messages
 - `app.message('share links')` posts a Block Kit message listing the user's saved links to the channel
 - `/save-link` command saves one or more URLs and responds with a "View Saved Links" button

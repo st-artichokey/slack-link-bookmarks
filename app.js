@@ -1,6 +1,13 @@
 const { App } = require('@slack/bolt');
-const fs = require('fs');
-const path = require('path');
+const {
+  getUserBookmarks,
+  addBookmark,
+  updateBookmark,
+  deleteBookmark,
+  getLastUpdateTime,
+  getPreferences,
+  savePreferences,
+} = require('./db');
 
 const app = new App({
   token: process.env.SLACK_BOT_TOKEN,
@@ -8,35 +15,6 @@ const app = new App({
   socketMode: true,
   appToken: process.env.SLACK_APP_TOKEN,
 });
-
-const DB_PATH = path.join(__dirname, 'bookmarks.db');
-
-const DEFAULT_PREFERENCES = { sortOrder: 'newest', notifications: true };
-
-function loadDb() {
-  try {
-    return JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
-  } catch {
-    return {};
-  }
-}
-
-function saveDb() {
-  fs.writeFileSync(DB_PATH, JSON.stringify({ bookmarks, preferences }, null, 2));
-}
-
-const db = loadDb();
-const bookmarks = db.bookmarks || [];
-const preferences = db.preferences || {};
-
-function getPreferences(userId) {
-  return { ...DEFAULT_PREFERENCES, ...preferences[userId] };
-}
-
-function savePreferences(userId, prefs) {
-  preferences[userId] = { ...getPreferences(userId), ...prefs };
-  saveDb();
-}
 
 // app.event('app_mention', async ({ event, say }) => {
 //   await say({ text: `Hello <@${event.user}>` });
@@ -56,7 +34,7 @@ app.message('hello bot', async ({ message, say }) => {
 });
 
 app.message('share links', async ({ message, client }) => {
-  const userBookmarks = bookmarks.filter(b => b.userId === message.user);
+  const userBookmarks = getUserBookmarks(message.user);
 
   if (userBookmarks.length === 0) {
     await client.chat.postEphemeral({
@@ -126,12 +104,6 @@ app.event('app_home_opened', async ({ event, client }) => {
     await publishHomeView(client, event.user);
   }
 });
-
-function getLastUpdateTime(userId) {
-  return bookmarks
-    .filter(b => b.userId === userId)
-    .reduce((latest, b) => Math.max(latest, b.updatedAt || 0), 0);
-}
 
 const lastSeenUpdate = {};
 
@@ -205,10 +177,7 @@ app.command('/save-link', async ({ command, ack, respond, client }) => {
     await respond({ response_type: 'ephemeral', text: 'Usage: /save-link <url>[, <url>, ...]' });
     return;
   }
-  urls.forEach(url => {
-    bookmarks.push({ userId: command.user_id, url, title: url, updatedAt: Date.now() });
-  });
-  saveDb();
+  urls.forEach(url => addBookmark(command.user_id, url, url));
   await publishHomeView(client, command.user_id);
   const summary = `Saved ${urls.length} link${urls.length === 1 ? '' : 's'}.`;
   await respond({
@@ -224,7 +193,7 @@ app.command('/save-link', async ({ command, ack, respond, client }) => {
 });
 
 function buildSavedLinksModal(userId) {
-  const userBookmarks = bookmarks.filter(b => b.userId === userId);
+  const userBookmarks = getUserBookmarks(userId);
   const blocks = userBookmarks.length === 0
     ? [{ type: 'section', text: { type: 'mrkdwn', text: 'No bookmarks saved yet.' } }]
     : userBookmarks.map(b => ({
@@ -281,9 +250,7 @@ app.shortcut('add_links', async ({ shortcut, ack, client }) => {
 
 app.view('add_links_modal', async ({ ack, view, body, client }) => {
   const urls = parseLinks(view.state.values.links_to_add.links_input.value);
-  urls.forEach(url => {
-    bookmarks.push({ userId: body.user.id, url, title: url, updatedAt: Date.now() });
-  });
+  urls.forEach(url => addBookmark(body.user.id, url, url));
   await ack({
     response_action: 'update',
     view: {
@@ -301,7 +268,7 @@ app.view('add_links_modal', async ({ ack, view, body, client }) => {
 });
 
 function buildEditModalView(userId) {
-  const userBookmarks = bookmarks.filter(b => b.userId === userId);
+  const userBookmarks = getUserBookmarks(userId);
   if (userBookmarks.length === 0) {
     return {
       type: 'modal',
@@ -319,7 +286,7 @@ function buildEditModalView(userId) {
       },
       {
         type: 'input',
-        block_id: `title_${i}`,
+        block_id: `title_${b.id}`,
         element: {
           type: 'plain_text_input',
           action_id: 'title_input',
@@ -329,7 +296,7 @@ function buildEditModalView(userId) {
       },
       {
         type: 'input',
-        block_id: `url_${i}`,
+        block_id: `url_${b.id}`,
         element: {
           type: 'plain_text_input',
           action_id: 'url_input',
@@ -349,10 +316,10 @@ function buildEditModalView(userId) {
 }
 
 function buildDeleteModalView(userId) {
-  const userBookmarks = bookmarks.filter(b => b.userId === userId);
-  const options = userBookmarks.map((b, i) => ({
+  const userBookmarks = getUserBookmarks(userId);
+  const options = userBookmarks.map(b => ({
     text: { type: 'plain_text', text: b.title.slice(0, 75) },
-    value: String(i)
+    value: String(b.id)
   }));
   return {
     type: 'modal',
@@ -376,7 +343,7 @@ function buildDeleteModalView(userId) {
 
 app.command('/delete-links', async ({ command, ack, body, client }) => {
   await ack();
-  const userBookmarks = bookmarks.filter(b => b.userId === command.user_id);
+  const userBookmarks = getUserBookmarks(command.user_id);
   if (userBookmarks.length === 0) {
     await client.chat.postEphemeral({
       channel: command.channel_id,
@@ -393,7 +360,7 @@ app.command('/delete-links', async ({ command, ack, body, client }) => {
 
 app.action('open_delete_modal', async ({ body, ack, client }) => {
   await ack();
-  const userBookmarks = bookmarks.filter(b => b.userId === body.user.id);
+  const userBookmarks = getUserBookmarks(body.user.id);
   if (userBookmarks.length === 0) return;
   await client.views.open({
     trigger_id: body.trigger_id,
@@ -403,14 +370,7 @@ app.action('open_delete_modal', async ({ body, ack, client }) => {
 
 app.view('delete_links_modal', async ({ ack, view, body, client }) => {
   const selected = view.state.values.links_to_delete.selected_links.selected_options;
-  const userBookmarks = bookmarks.filter(b => b.userId === body.user.id);
-  const indexesToDelete = selected.map(opt => Number(opt.value));
-  const urlsToDelete = indexesToDelete.map(i => userBookmarks[i].url);
-  urlsToDelete.forEach(url => {
-    const idx = bookmarks.findIndex(b => b.userId === body.user.id && b.url === url);
-    if (idx !== -1) bookmarks.splice(idx, 1);
-  });
-  saveDb();
+  selected.forEach(opt => deleteBookmark(Number(opt.value)));
   await ack({
     response_action: 'update',
     view: {
@@ -419,7 +379,7 @@ app.view('delete_links_modal', async ({ ack, view, body, client }) => {
       blocks: [
         {
           type: 'section',
-          text: { type: 'mrkdwn', text: `Deleted ${urlsToDelete.length} link${urlsToDelete.length === 1 ? '' : 's'}.` }
+          text: { type: 'mrkdwn', text: `Deleted ${selected.length} link${selected.length === 1 ? '' : 's'}.` }
         }
       ]
     }
@@ -429,7 +389,7 @@ app.view('delete_links_modal', async ({ ack, view, body, client }) => {
 
 app.action('open_edit_modal', async ({ body, ack, client }) => {
   await ack();
-  const userBookmarks = bookmarks.filter(b => b.userId === body.user.id);
+  const userBookmarks = getUserBookmarks(body.user.id);
   if (userBookmarks.length === 0) return;
   await client.views.open({
     trigger_id: body.trigger_id,
@@ -438,13 +398,11 @@ app.action('open_edit_modal', async ({ body, ack, client }) => {
 });
 
 app.view('edit_links_modal', async ({ ack, view, body, client }) => {
-  const userBookmarks = bookmarks.filter(b => b.userId === body.user.id);
-  userBookmarks.forEach((b, i) => {
-    const title = view.state.values[`title_${i}`].title_input.value.trim();
-    const url = view.state.values[`url_${i}`].url_input.value.trim();
-    b.title = title;
-    b.url = url;
-    b.updatedAt = Date.now();
+  const userBookmarks = getUserBookmarks(body.user.id);
+  userBookmarks.forEach(b => {
+    const title = view.state.values[`title_${b.id}`].title_input.value.trim();
+    const url = view.state.values[`url_${b.id}`].url_input.value.trim();
+    updateBookmark(b.id, title, url);
   });
   await ack({
     response_action: 'update',
@@ -465,7 +423,7 @@ app.view('edit_links_modal', async ({ ack, view, body, client }) => {
 app.command('/show-links', async ({ command, ack, respond }) => {
   await ack();
   const keyword = command.text.trim().toLowerCase();
-  let userBookmarks = bookmarks.filter(b => b.userId === command.user_id);
+  let userBookmarks = getUserBookmarks(command.user_id);
   if (keyword) {
     userBookmarks = userBookmarks.filter(b =>
       b.url.toLowerCase().includes(keyword) || b.title.toLowerCase().includes(keyword)
@@ -491,7 +449,7 @@ app.command('/show-links', async ({ command, ack, respond }) => {
 
 function buildOverviewBlocks(userId) {
   const { sortOrder } = getPreferences(userId);
-  const userBookmarks = bookmarks.filter(b => b.userId === userId);
+  const userBookmarks = getUserBookmarks(userId);
   const sortLabel = sortOrder === 'alphabetical' ? 'A–Z' : 'Newest first';
   const blocks = [
     { type: 'header', text: { type: 'plain_text', text: ':link: Your Saved Links' } },
@@ -524,7 +482,7 @@ function buildOverviewBlocks(userId) {
 }
 
 function buildActivityBlocks(userId) {
-  const userBookmarks = bookmarks.filter(b => b.userId === userId);
+  const userBookmarks = getUserBookmarks(userId);
   const blocks = [
     { type: 'header', text: { type: 'plain_text', text: 'Recent Activity' } }
   ];
