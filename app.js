@@ -50,28 +50,13 @@ app.event('app_mention', async ({ event, client }) => {
   });
 });
 
-
-app.message('hello bot', async ({ message, say }) => {
-  await say(`Hello, <@${message.user}>.`);
-});
-
-app.event('message', async ({ event, client }) => {
-  // Only handle newly posted DMs. bot_id/subtype guards drop the bot's own
-  // replies (and edits/deletes) so we don't answer ourselves in a loop.
-  if (event.channel_type !== 'im' || event.bot_id || event.subtype) return;
-  await client.chat.postMessage({
-    channel: event.channel,
-    text: `Save a link anytime with \`/save-link <url>\`, or open the Home tab to manage your collection.`
-  });
-});
-
-app.message('share links', async ({ message, client }) => {
-  const userBookmarks = bookmarks.filter(b => b.userId === message.user);
+async function shareLinks(client, userId, channel) {
+  const userBookmarks = bookmarks.filter(b => b.userId === userId);
 
   if (userBookmarks.length === 0) {
     await client.chat.postEphemeral({
-      channel: message.channel,
-      user: message.user,
+      channel,
+      user: userId,
       text: 'You have no saved links to share. Use /save-link <url> to add one.'
     });
     return;
@@ -81,35 +66,86 @@ app.message('share links', async ({ message, client }) => {
   const linkList = userBookmarks.map(b => `• <${b.url}|${b.title}>`).join('\n');
 
   const blocks = [
-    {
-      type: 'header',
-      text: { type: 'plain_text', text: ':link: Shared Links' }
-    },
+    { type: 'header', text: { type: 'plain_text', text: ':link: Shared Links' } },
     {
       type: 'context',
-      elements: [
-        {
-          type: 'mrkdwn',
-          text: `Shared by <@${message.user}> · ${count} link${count === 1 ? '' : 's'}`
-        }
-      ]
+      elements: [{
+        type: 'mrkdwn',
+        text: `Shared by <@${userId}> · ${count} link${count === 1 ? '' : 's'}`
+      }]
     },
     { type: 'divider' },
-    {
-      type: 'section',
-      text: { type: 'mrkdwn', text: linkList }
-    }
+    { type: 'section', text: { type: 'mrkdwn', text: linkList } }
   ];
 
   await client.chat.postMessage({
-    channel: message.channel,
+    channel,
     blocks,
-    text: `<@${message.user}> shared ${count} link${count === 1 ? '' : 's'}`
+    text: `<@${userId}> shared ${count} link${count === 1 ? '' : 's'}`
+  });
+}
+
+// A URL here is untrusted DM input, so we only treat http(s) and www. tokens as
+// links to save — everything else routes to the help reply rather than being
+// stored. Slack auto-links URLs in messages as <url> or <url|label>, so strip
+// that markup (keeping the url, dropping the label) before matching. Bare www.
+// tokens are prefixed with https:// so the stored link stays clickable.
+function extractUrls(text) {
+  const unwrapped = (text || '').replace(/<(https?:\/\/[^|>]+)(\|[^>]*)?>/gi, '$1');
+  return parseLinks(unwrapped)
+    .filter(u => /^(https?:\/\/|www\.)/i.test(u))
+    .map(u => (/^www\./i.test(u) ? `https://${u}` : u));
+}
+
+// Single router for the Messages tab. bot_id/subtype guards drop the bot's own
+// replies (and edits/deletes) so we don't answer ourselves in a loop. Exactly
+// one branch responds, avoiding the overlapping-listener double-reply.
+app.event('message', async ({ event, client }) => {
+  if (event.channel_type !== 'im' || event.bot_id || event.subtype) return;
+
+  const text = (event.text || '').trim();
+  const urls = extractUrls(text);
+
+  if (urls.length > 0) {
+    saveUrlsForUser(event.user, urls);
+    await publishHomeView(client, event.user);
+    await client.chat.postMessage({ channel: event.channel, ...savedConfirmationBlocks(urls.length) });
+    return;
+  }
+
+  if (text.toLowerCase() === 'share links') {
+    await shareLinks(client, event.user, event.channel);
+    return;
+  }
+
+  await client.chat.postMessage({
+    channel: event.channel,
+    text: 'Send me a URL to save it, or type `share links` to post your collection. You can manage everything from the Home tab.'
   });
 });
 
 function parseLinks(raw) {
   return (raw || '').split(/[\n,]+/).map(u => u.trim()).filter(Boolean);
+}
+
+function saveUrlsForUser(userId, urls) {
+  urls.forEach(url => {
+    bookmarks.push({ userId, url, title: url, updatedAt: Date.now() });
+  });
+  saveDb();
+}
+
+function savedConfirmationBlocks(count) {
+  const summary = `Saved ${count} link${count === 1 ? '' : 's'}.`;
+  return {
+    text: summary,
+    blocks: [
+      { type: 'section', text: { type: 'mrkdwn', text: summary } },
+      { type: 'actions', elements: [
+        { type: 'button', text: { type: 'plain_text', text: 'View Saved Links' }, action_id: 'view_saved_links' }
+      ]}
+    ]
+  };
 }
 
 function sortBookmarks(userBookmarks, sortOrder) {
@@ -215,22 +251,9 @@ app.command('/save-link', async ({ command, ack, respond, client }) => {
     await respond({ response_type: 'ephemeral', text: 'Usage: /save-link <url>[, <url>, ...]' });
     return;
   }
-  urls.forEach(url => {
-    bookmarks.push({ userId: command.user_id, url, title: url, updatedAt: Date.now() });
-  });
-  saveDb();
+  saveUrlsForUser(command.user_id, urls);
   await publishHomeView(client, command.user_id);
-  const summary = `Saved ${urls.length} link${urls.length === 1 ? '' : 's'}.`;
-  await respond({
-    response_type: 'ephemeral',
-    text: summary,
-    blocks: [
-      { type: 'section', text: { type: 'mrkdwn', text: summary } },
-      { type: 'actions', elements: [
-        { type: 'button', text: { type: 'plain_text', text: 'View Saved Links' }, action_id: 'view_saved_links' }
-      ]}
-    ]
-  });
+  await respond({ response_type: 'ephemeral', ...savedConfirmationBlocks(urls.length) });
 });
 
 function buildSavedLinksModal(userId) {
