@@ -29,6 +29,7 @@ The app carries over everything through stage 05 (event listeners, interactive c
 
 ### New in this stage
 
+- `app.event('message')` consolidates the previous per-keyword `app.message(...)` listeners into a single DM intent router for the Messages tab: it saves any URLs sent, responds to `share links`, and otherwise replies with help. `bot_id`/`subtype` guards keep the app from replying to itself, and exactly one branch responds so there is no double-reply from overlapping listeners
 - `app.event('app_home_opened')` publishes a tabbed App Home tab via `buildTabbedHome`, with Overview (saved links plus edit/delete actions), Activity (a recent-activity feed), and Settings (sort order and notification preference) tabs; it skips the `views.publish` call when nothing has changed since the user last saw the view
 - `app.action('open_settings')` opens a settings modal for the sort order and notifications preference; `app.view('settings_modal')` persists it through `savePreferences`
 - `app.action('open_edit_modal')` opens an "Edit Saved Links" modal with a title and URL input per bookmark; `app.view('edit_links_modal')` writes the edits back
@@ -37,8 +38,8 @@ The app carries over everything through stage 05 (event listeners, interactive c
 
 ### From previous stages
 
-- `app.message('hello bot')` listener responds to a keyword in channel messages
-- `app.message('share links')` posts a Block Kit message listing the user's saved links to the channel
+> Note: the standalone `app.message('hello bot')` and channel-based `app.message('share links')` listeners from earlier stages are removed in this stage. The `share links` keyword now lives in the DM intent router above; posting a saved-links Block Kit message is still available via the router's `shareLinks` helper.
+
 - `/save-link` command saves one or more URLs and responds with a "View Saved Links" button
 - `app.action('view_saved_links')` opens a modal displaying the user's bookmarks
 - `/show-links` command lists saved links with optional keyword filtering
