@@ -54,6 +54,16 @@ function deleteBookmark(id) {
   query('DELETE FROM bookmarks WHERE id = ?', [id]);
 }
 
+function deleteUserData(userId) {
+  query('DELETE FROM bookmarks WHERE user_id = ?', [userId]);
+  query('DELETE FROM preferences WHERE user_id = ?', [userId]);
+}
+
+function deleteAllData() {
+  query('DELETE FROM bookmarks');
+  query('DELETE FROM preferences');
+}
+
 function getLastUpdateTime(userId) {
   const { rows } = query('SELECT MAX(updated_at) AS latest FROM bookmarks WHERE user_id = ?', [userId]);
   return rows[0].latest || 0;
@@ -82,6 +92,8 @@ module.exports = {
   addBookmark,
   updateBookmark,
   deleteBookmark,
+  deleteUserData,
+  deleteAllData,
   getLastUpdateTime,
   getPreferences,
   savePreferences,

@@ -34,6 +34,7 @@ Through stage 06 the app held bookmarks and preferences in memory, mirrored to a
 - A single `query(text, params)` seam wraps all database access — reads return `{ rows }`, writes return change metadata — so the storage layer stays swappable (for example, moving to Postgres later touches only `query()`)
 - `getUserBookmarks`, `addBookmark`, `updateBookmark`, `deleteBookmark`, `getLastUpdateTime`, and the SQLite-backed `getPreferences`/`savePreferences` (an upsert) all go through that seam; the per-user reads and inserts are scoped by `user_id`, while `updateBookmark`/`deleteBookmark` target a stable row `id` (see below)
 - The edit and delete modals now key off stable row `id`s instead of array positions, so links can be added or removed between opening a modal and submitting it without corrupting the target
+- `app.event('app_uninstalled')` and `app.event('tokens_revoked')` clean up stored data when access ends: uninstalling clears every table via `deleteAllData()`, while a token revocation drops each affected user's bookmarks and preferences via `deleteUserData(userId)` — both new `db.js` functions that go through the same query seam
 
 ### From previous stages
 

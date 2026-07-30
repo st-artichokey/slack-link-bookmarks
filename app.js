@@ -4,6 +4,8 @@ const {
   addBookmark,
   updateBookmark,
   deleteBookmark,
+  deleteUserData,
+  deleteAllData,
   getLastUpdateTime,
   getPreferences,
   savePreferences,
@@ -30,6 +32,19 @@ app.event('app_mention', async ({ event, client }) => {
   });
 });
 
+// This single-workspace app is uninstalled: every user's saved links and
+// preferences belong to that one workspace, so clear them all.
+app.event('app_uninstalled', async () => {
+  deleteAllData();
+});
+
+// A user revoked the app's access. event.tokens.oauth lists the affected user
+// ids; drop each one's bookmarks and preferences.
+app.event('tokens_revoked', async ({ event }) => {
+  for (const userId of event.tokens.oauth || []) {
+    deleteUserData(userId);
+  }
+});
 
 async function shareLinks(client, userId, channel) {
   const userBookmarks = getUserBookmarks(userId);

@@ -53,7 +53,7 @@
   },
   "settings": {
     "event_subscriptions": {
-      "bot_events": ["app_mention", "message.im", "app_home_opened"]
+      "bot_events": ["app_mention", "message.im", "app_home_opened", "app_uninstalled", "tokens_revoked"]
     },
     "interactivity": {
       "is_enabled": true
