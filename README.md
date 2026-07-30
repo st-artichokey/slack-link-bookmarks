@@ -12,7 +12,7 @@ A code-along companion to the "Building a Marketplace-Ready Slack App" series. E
 To see what changed between stages:
 
 ```bash
-git diff stage-06..stage-07
+git diff stage-07..stage-08
 ```
 
 ## Prerequisites
@@ -23,18 +23,26 @@ git diff stage-06..stage-07
 
 ---
 
-## Stage 07 — Persistent Storage
+## Stage 08 — Error Handling & Logging
 
-Through stage 06 the app held bookmarks and preferences in memory, mirrored to a local JSON file. That works for a single-process dev app but doesn't survive as real infrastructure: there's no schema, no concurrent-safe writes, and every read scans the whole file. This stage replaces that interim storage with a real SQLite database, routes every read and write through a single query seam, and moves the whole storage layer into its own `db.js` module so `app.js` is left with just the Slack wiring.
+A Marketplace app runs in workspaces you can't observe. Users who hit an error rarely report it — they just stop using the app. This stage makes failures visible to you as the developer and actionable for the user: every user-facing handler acknowledges first, catches its own errors, shows a plain-language message with a reference id, and logs the details as structured JSON. Two new modules keep this out of the Slack wiring, mirroring how stage 07 pulled storage into `db.js`.
 
 ### New in this stage
 
-- A new `db.js` module owns the database connection, schema, and every data-access function; `app.js` pulls them in with a single `require('./db')`, keeping storage concerns out of the Slack handlers
-- A SQLite database (via `better-sqlite3`) replaces the JSON file, with `bookmarks` and `preferences` tables created on startup and WAL journaling enabled
-- A single `query(text, params)` seam wraps all database access — reads return `{ rows }`, writes return change metadata — so the storage layer stays swappable (for example, moving to Postgres later touches only `query()`)
-- `getUserBookmarks`, `addBookmark`, `updateBookmark`, `deleteBookmark`, `getLastUpdateTime`, and the SQLite-backed `getPreferences`/`savePreferences` (an upsert) all go through that seam; the per-user reads and inserts are scoped by `user_id`, while `updateBookmark`/`deleteBookmark` target a stable row `id` (see below)
-- The edit and delete modals now key off stable row `id`s instead of array positions, so links can be added or removed between opening a modal and submitting it without corrupting the target
-- `app.event('app_uninstalled')` and `app.event('tokens_revoked')` clean up stored data when access ends: uninstalling clears every table via `deleteAllData()`, while a token revocation drops each affected user's bookmarks and preferences via `deleteUserData(userId)` — both new `db.js` functions that go through the same query seam
+- A new `logger.js` module emits JSON-structured logs (`level`, `message`, `timestamp`, plus context) with a `LOG_LEVEL` filter; it redacts secrets and user content (tokens, message `text`, emails, names) before writing, and provides `newCorrelationId()` for tracing one interaction across log lines
+- A new `errors.js` module maps Slack web API error codes (`channel_not_found`, `missing_scope`, `ratelimited`, etc.) to messages a user can act on, classifies which errors are transient, and provides `retryWithBackoff()` (exponential backoff with jitter) for idempotent calls
+- `app.error()` registers a global handler as a safety net: it logs any unhandled listener error with team/user context. Because it fires after the listener has already failed, per-listener try/catch remains the primary path for user-facing messages
+- The `/save-link`, `/show-links`, DM message router, and "Add Links" modal handlers now acknowledge first, then wrap their work in try/catch — on failure they log full details (with a correlation id) and show the user a friendly message ending in `(ref: <id>)` so support can find the matching logs
+- The "Add Links" modal validates its input with `response_action: 'errors'`, so submitting no valid URL returns a field-level error and keeps the user's input instead of silently saving zero links
+- `publishHomeView` wraps the idempotent `views.publish` call in `retryWithBackoff`; non-idempotent posts (like `chat.postMessage`) are deliberately not retried to avoid duplicate messages
+
+### From stage 07 — Persistent Storage
+
+- A `db.js` module owns the database connection, schema, and every data-access function; `app.js` pulls them in with a single `require('./db')`, keeping storage concerns out of the Slack handlers
+- A SQLite database (via `better-sqlite3`) replaces the earlier JSON file, with `bookmarks` and `preferences` tables created on startup and WAL journaling enabled
+- A single `query(text, params)` seam wraps all database access — reads return `{ rows }`, writes return change metadata — so the storage layer stays swappable
+- The edit and delete modals key off stable row `id`s instead of array positions, so links can be added or removed between opening a modal and submitting it without corrupting the target
+- `app.event('app_uninstalled')` and `app.event('tokens_revoked')` clean up stored data when access ends: uninstalling clears every table via `deleteAllData()`, while a token revocation drops each affected user's data via `deleteUserData(userId)`
 
 ### From previous stages
 

@@ -11,6 +11,8 @@ const {
   savePreferences,
 } = require('./db');
 const { retryPolicies } = require('@slack/web-api');
+const { logger, newCorrelationId } = require('./logger');
+const { friendlyMessage, retryWithBackoff } = require('./errors');
 
 const app = new App({
   token: process.env.SLACK_BOT_TOKEN,
@@ -18,6 +20,19 @@ const app = new App({
   socketMode: true,
   appToken: process.env.SLACK_APP_TOKEN,
   clientOptions: { retryConfig: retryPolicies.fiveRetriesInFiveMinutes },
+});
+
+// Safety net for anything a listener's own try/catch misses. Bolt keeps running
+// after an unhandled listener error, so without this the failure would only
+// reach stderr. Too late to reply to the user here — that's the listener's job.
+app.error(async ({ error, body }) => {
+  logger.error('Unhandled listener error', {
+    message: error.message,
+    code: error.code,
+    stack: error.stack,
+    team: body?.team_id || body?.team?.id,
+    user: body?.user_id || body?.user?.id,
+  });
 });
 
 // app.event('app_mention', async ({ event, say }) => {
@@ -99,25 +114,37 @@ function extractUrls(text) {
 app.event('message', async ({ event, client }) => {
   if (event.channel_type !== 'im' || event.bot_id || event.subtype) return;
 
-  const text = (event.text || '').trim();
-  const urls = extractUrls(text);
+  const correlationId = newCorrelationId();
+  try {
+    const text = (event.text || '').trim();
+    const urls = extractUrls(text);
 
-  if (urls.length > 0) {
-    urls.forEach(url => addBookmark(event.user, url, url));
-    await publishHomeView(client, event.user);
-    await client.chat.postMessage({ channel: event.channel, ...savedConfirmationBlocks(urls.length) });
-    return;
+    if (urls.length > 0) {
+      urls.forEach(url => addBookmark(event.user, url, url));
+      await publishHomeView(client, event.user);
+      await client.chat.postMessage({ channel: event.channel, ...savedConfirmationBlocks(urls.length) });
+      logger.info('Saved links from DM', { correlationId, user: event.user, count: urls.length });
+      return;
+    }
+
+    if (text.toLowerCase() === 'share links') {
+      await shareLinks(client, event.user, event.channel);
+      return;
+    }
+
+    await client.chat.postMessage({
+      channel: event.channel,
+      text: 'Send me a URL to save it, or type `share links` to post your collection. You can manage everything from the Home tab.'
+    });
+  } catch (error) {
+    logger.error('DM handler failed', { correlationId, user: event.user, message: error.message, code: error.code, stack: error.stack });
+    // Best-effort notice on the same DM surface; swallow a secondary failure so
+    // it can't crash the handler a second time.
+    await client.chat.postMessage({
+      channel: event.channel,
+      text: `${friendlyMessage(error)} (ref: ${correlationId})`
+    }).catch(() => {});
   }
-
-  if (text.toLowerCase() === 'share links') {
-    await shareLinks(client, event.user, event.channel);
-    return;
-  }
-
-  await client.chat.postMessage({
-    channel: event.channel,
-    text: 'Send me a URL to save it, or type `share links` to post your collection. You can manage everything from the Home tab.'
-  });
 });
 
 function parseLinks(raw) {
@@ -145,10 +172,12 @@ function sortBookmarks(userBookmarks, sortOrder) {
 }
 
 async function publishHomeView(client, userId, activeTab = 'overview') {
-  await client.views.publish({
+  // views.publish is idempotent (same view produces the same state), so it's
+  // safe to retry on a transient failure.
+  await retryWithBackoff(() => client.views.publish({
     user_id: userId,
     view: { type: 'home', blocks: buildTabbedHome(activeTab, userId) }
-  });
+  }));
 }
 
 app.event('app_home_opened', async ({ event, client }) => {
@@ -229,14 +258,21 @@ app.view('settings_modal', async ({ ack, view, body, client }) => {
 
 app.command('/save-link', async ({ command, ack, respond, client }) => {
   await ack();
-  const urls = parseLinks(command.text);
-  if (urls.length === 0) {
-    await respond({ response_type: 'ephemeral', text: 'Usage: /save-link <url>[, <url>, ...]' });
-    return;
+  const correlationId = newCorrelationId();
+  try {
+    const urls = parseLinks(command.text);
+    if (urls.length === 0) {
+      await respond({ response_type: 'ephemeral', text: 'Usage: /save-link <url>[, <url>, ...]' });
+      return;
+    }
+    urls.forEach(url => addBookmark(command.user_id, url, url));
+    await publishHomeView(client, command.user_id);
+    await respond({ response_type: 'ephemeral', ...savedConfirmationBlocks(urls.length) });
+    logger.info('Saved links', { correlationId, team: command.team_id, user: command.user_id, count: urls.length });
+  } catch (error) {
+    logger.error('save-link failed', { correlationId, team: command.team_id, user: command.user_id, message: error.message, code: error.code, stack: error.stack });
+    await respond({ response_type: 'ephemeral', text: `${friendlyMessage(error)} (ref: ${correlationId})` });
   }
-  urls.forEach(url => addBookmark(command.user_id, url, url));
-  await publishHomeView(client, command.user_id);
-  await respond({ response_type: 'ephemeral', ...savedConfirmationBlocks(urls.length) });
 });
 
 function buildSavedLinksModal(userId) {
@@ -296,22 +332,47 @@ app.shortcut('add_links', async ({ shortcut, ack, client }) => {
 });
 
 app.view('add_links_modal', async ({ ack, view, body, client }) => {
-  const urls = parseLinks(view.state.values.links_to_add.links_input.value);
-  urls.forEach(url => addBookmark(body.user.id, url, url));
-  await ack({
-    response_action: 'update',
-    view: {
-      type: 'modal',
-      title: { type: 'plain_text', text: 'Add Links' },
-      blocks: [
-        {
-          type: 'section',
-          text: { type: 'mrkdwn', text: `Saved ${urls.length} link${urls.length === 1 ? '' : 's'}.` }
-        }
-      ]
-    }
-  });
-  await publishHomeView(client, body.user.id);
+  const urls = extractUrls(view.state.values.links_to_add.links_input.value);
+  // Validate on the field itself so the user keeps their input and sees exactly
+  // what to fix, rather than getting a saved-0-links dead end.
+  if (urls.length === 0) {
+    await ack({
+      response_action: 'errors',
+      errors: { links_to_add: 'Enter at least one valid URL (starting with http://, https://, or www.).' }
+    });
+    return;
+  }
+  const correlationId = newCorrelationId();
+  try {
+    urls.forEach(url => addBookmark(body.user.id, url, url));
+    await ack({
+      response_action: 'update',
+      view: {
+        type: 'modal',
+        title: { type: 'plain_text', text: 'Add Links' },
+        blocks: [
+          {
+            type: 'section',
+            text: { type: 'mrkdwn', text: `Saved ${urls.length} link${urls.length === 1 ? '' : 's'}.` }
+          }
+        ]
+      }
+    });
+    await publishHomeView(client, body.user.id);
+    logger.info('Saved links from modal', { correlationId, user: body.user.id, count: urls.length });
+  } catch (error) {
+    logger.error('add_links_modal failed', { correlationId, user: body.user.id, message: error.message, code: error.code, stack: error.stack });
+    await ack({
+      response_action: 'update',
+      view: {
+        type: 'modal',
+        title: { type: 'plain_text', text: 'Add Links' },
+        blocks: [
+          { type: 'section', text: { type: 'mrkdwn', text: `:warning: ${friendlyMessage(error)} (ref: ${correlationId})` } }
+        ]
+      }
+    });
+  }
 });
 
 function buildEditModalView(userId) {
@@ -469,29 +530,35 @@ app.view('edit_links_modal', async ({ ack, view, body, client }) => {
 
 app.command('/show-links', async ({ command, ack, respond }) => {
   await ack();
-  const keyword = command.text.trim().toLowerCase();
-  let userBookmarks = getUserBookmarks(command.user_id);
-  if (keyword) {
-    userBookmarks = userBookmarks.filter(b =>
-      b.url.toLowerCase().includes(keyword) || b.title.toLowerCase().includes(keyword)
-    );
+  const correlationId = newCorrelationId();
+  try {
+    const keyword = command.text.trim().toLowerCase();
+    let userBookmarks = getUserBookmarks(command.user_id);
+    if (keyword) {
+      userBookmarks = userBookmarks.filter(b =>
+        b.url.toLowerCase().includes(keyword) || b.title.toLowerCase().includes(keyword)
+      );
+    }
+    if (userBookmarks.length === 0) {
+      const msg = keyword
+        ? `No saved links matching "${keyword}".`
+        : 'No saved links yet.';
+      await respond({ response_type: 'ephemeral', text: msg });
+      return;
+    }
+    const header = keyword ? `Links matching "${keyword}":` : 'Your saved links:';
+    const list = userBookmarks.map(b => `• <${b.url}|${b.title}>`).join('\n');
+    await respond({
+      response_type: 'ephemeral',
+      text: `${header}\n${list}`,
+      blocks: [
+        { type: 'section', text: { type: 'mrkdwn', text: `${header}\n${list}` } }
+      ]
+    });
+  } catch (error) {
+    logger.error('show-links failed', { correlationId, team: command.team_id, user: command.user_id, message: error.message, code: error.code, stack: error.stack });
+    await respond({ response_type: 'ephemeral', text: `${friendlyMessage(error)} (ref: ${correlationId})` });
   }
-  if (userBookmarks.length === 0) {
-    const msg = keyword
-      ? `No saved links matching "${keyword}".`
-      : 'No saved links yet.';
-    await respond({ response_type: 'ephemeral', text: msg });
-    return;
-  }
-  const header = keyword ? `Links matching "${keyword}":` : 'Your saved links:';
-  const list = userBookmarks.map(b => `• <${b.url}|${b.title}>`).join('\n');
-  await respond({
-    response_type: 'ephemeral',
-    text: `${header}\n${list}`,
-    blocks: [
-      { type: 'section', text: { type: 'mrkdwn', text: `${header}\n${list}` } }
-    ]
-  });
 });
 
 function buildOverviewBlocks(userId) {
@@ -604,5 +671,5 @@ app.action(/^home_tab_/, async ({ action, body, ack, client }) => {
 
 (async () => {
   await app.start();
-  console.log('Link Bookmarks is running!');
+  logger.info('Link Bookmarks is running');
 })();
