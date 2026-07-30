@@ -32,7 +32,7 @@ Through stage 06 the app held bookmarks and preferences in memory, mirrored to a
 - A new `db.js` module owns the database connection, schema, and every data-access function; `app.js` pulls them in with a single `require('./db')`, keeping storage concerns out of the Slack handlers
 - A SQLite database (via `better-sqlite3`) replaces the JSON file, with `bookmarks` and `preferences` tables created on startup and WAL journaling enabled
 - A single `query(text, params)` seam wraps all database access — reads return `{ rows }`, writes return change metadata — so the storage layer stays swappable (for example, moving to Postgres later touches only `query()`)
-- `getUserBookmarks`, `addBookmark`, `updateBookmark`, `deleteBookmark`, `getLastUpdateTime`, and the SQLite-backed `getPreferences`/`savePreferences` (an upsert) all go through that seam and scope every query by `user_id`
+- `getUserBookmarks`, `addBookmark`, `updateBookmark`, `deleteBookmark`, `getLastUpdateTime`, and the SQLite-backed `getPreferences`/`savePreferences` (an upsert) all go through that seam; the per-user reads and inserts are scoped by `user_id`, while `updateBookmark`/`deleteBookmark` target a stable row `id` (see below)
 - The edit and delete modals now key off stable row `id`s instead of array positions, so links can be added or removed between opening a modal and submitting it without corrupting the target
 
 ### From previous stages
