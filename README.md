@@ -41,8 +41,7 @@ Through stage 06 the app held bookmarks and preferences in memory, mirrored to a
 - `app.action('open_settings')` and `app.view('settings_modal')` manage the sort order and notifications preference
 - `app.action('open_edit_modal')` and `app.view('edit_links_modal')` handle the "Edit Saved Links" modal
 - `/save-link` and the "Add Links" modal accept several URLs at once, split on commas or new lines via a shared `parseLinks` helper
-- `app.message('hello bot')` listener responds to a keyword in channel messages
-- `app.message('share links')` posts a Block Kit message listing the user's saved links to the channel
+- `app.event('message')` is a single DM intent router for the Messages tab: it saves any URLs sent, responds to `share links` via the `shareLinks` helper, and otherwise replies with help; `bot_id`/`subtype` guards keep the app from replying to itself
 - `/save-link` command saves one or more URLs and responds with a "View Saved Links" button
 - `app.action('view_saved_links')` opens a modal displaying the user's bookmarks
 - `/show-links` command lists saved links with optional keyword filtering

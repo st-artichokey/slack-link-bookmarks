@@ -3,7 +3,7 @@ const Database = require('better-sqlite3');
 
 const DEFAULT_PREFERENCES = { sortOrder: 'newest', notifications: true };
 
-const db = new Database(path.join(__dirname, 'bookmarks.db'));
+const db = new Database(path.join(__dirname, 'bookmarks.sqlite3'));
 db.pragma('journal_mode = WAL');
 db.exec(`
   CREATE TABLE IF NOT EXISTS bookmarks (
